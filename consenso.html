@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Consenso Informato – Studio Carnemolla</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    .recording-area { display:flex; flex-direction:column; align-items:center; gap:20px; padding:32px; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-lg); margin-bottom:24px; text-align:center; }
+    .recording-status { font-size:14px; color:var(--text-muted); min-height:20px; }
+    .recording-status.active { color:var(--error); font-weight:600; }
+    textarea.trascrizione { min-height:400px; font-size:14px; line-height:1.8; }
+    .action-bar { display:flex; gap:12px; flex-wrap:wrap; justify-content:flex-end; margin-top:16px; }
+    .step { display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text-muted); padding:10px 14px; border-radius:var(--radius); background:var(--bg-secondary); border:1px solid var(--border); }
+    .step.active { background:var(--primary-bg); border-color:var(--primary); color:var(--primary); font-weight:600; }
+    .step.done { background:var(--success-bg); border-color:#BBF7D0; color:var(--success); }
+    .steps { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:24px; }
+  </style>
+</head>
+<body>
+
+<header class="nav-header">
+  <div class="nav-brand">
+    <div class="nav-logo">EC</div>
+    <div>
+      <div class="nav-title" id="header-nome">Consenso Informato</div>
+      <div class="nav-subtitle">Studio Ortodontico</div>
+    </div>
+  </div>
+  <div class="nav-actions">
+    <a href="#" id="back-btn" class="btn btn-secondary btn-sm">← Scheda</a>
+    <button class="btn btn-secondary btn-sm" id="logout-btn">Esci</button>
+  </div>
+</header>
+
+<main class="dash-content">
+  <div id="loading" class="text-center text-muted" style="padding:64px">Caricamento…</div>
+  <div id="content" class="hidden">
+
+    <div class="steps">
+      <div class="step active" id="step-1">🎙 1. Registrazione</div>
+      <div class="step" id="step-2">🤖 2. Trascrizione AI</div>
+      <div class="step" id="step-3">✅ 3. Validazione</div>
+    </div>
+
+    <div class="alert alert-info mb-6">
+      <span>👤</span>
+      <div><strong id="paziente-nome-display">–</strong><span class="text-muted" style="font-size:13px;"> · Consenso informato del colloquio</span></div>
+    </div>
+
+    <!-- FASE 1: Registrazione -->
+    <div id="fase-registrazione">
+      <div class="recording-area">
+        <div>
+          <h2 style="font-size:18px; margin-bottom:8px;">Registra il colloquio</h2>
+          <p class="text-muted" style="font-size:13px; max-width:360px;">
+            Premi il tasto rosso per avviare la registrazione. Al termine premi di nuovo per fermare.
+          </p>
+        </div>
+        <button id="record-btn" class="recording-btn idle" title="Avvia registrazione">🎙</button>
+        <div class="timer" id="timer">00:00</div>
+        <div class="recording-status" id="recording-status">Pronto alla registrazione</div>
+      </div>
+
+      <!-- Playback -->
+      <div id="playback-section" class="card mb-6 hidden">
+        <div class="card-title mb-4">Ascolta la registrazione</div>
+        <audio id="audio-player" controls style="width:100%;max-width:400px;"></audio>
+        <div class="action-bar">
+          <button id="restart-btn" class="btn btn-secondary">🔄 Ricomincia</button>
+          <button id="transcribe-btn" class="btn btn-primary">
+            <span id="transcribe-text">🤖 Trascrivi con Claude AI</span>
+            <span id="transcribe-spinner" class="spinner hidden"></span>
+          </button>
+        </div>
+      </div>
+
+      <div id="transcribe-error" class="alert alert-error hidden mb-4">
+        <span>⚠</span><span id="transcribe-error-text">Errore durante la trascrizione.</span>
+      </div>
+    </div>
+
+    <!-- FASE 2 & 3: Trascrizione + Validazione -->
+    <div id="fase-trascrizione" class="hidden">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Consenso Informato</span>
+          <span id="consenso-stato-badge"></span>
+        </div>
+        <p class="text-muted mb-4" style="font-size:13px;">
+          Leggi e correggi la trascrizione, poi clicca <strong>Valida e Archivia</strong>.
+        </p>
+        <textarea id="trascrizione" class="trascrizione" placeholder="La trascrizione apparirà qui…"></textarea>
+        <div class="action-bar">
+          <button id="salva-bozza-btn" class="btn btn-secondary">
+            <span id="bozza-text">💾 Salva Bozza</span>
+            <span id="bozza-spinner" class="spinner-dark spinner hidden"></span>
+          </button>
+          <button id="valida-btn" class="btn btn-success">
+            <span id="valida-text">✅ Valida e Archivia</span>
+            <span id="valida-spinner" class="spinner hidden"></span>
+          </button>
+        </div>
+        <div id="save-success" class="alert alert-success hidden mt-4">
+          <span>✓</span><span id="save-success-text">Salvato.</span>
+        </div>
+        <div id="save-error" class="alert alert-error hidden mt-4">
+          <span>⚠</span><span>Errore nel salvataggio. Riprova.</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+  import { getAuth, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+  import { getDatabase, ref, push, update, get, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+
+  var firebaseConfig = {
+    apiKey:      "AIzaSyDLrgBwcVllC8naNv2nNSUevWHzATedTxE",
+    authDomain:  "studio-carnemolla.firebaseapp.com",
+    databaseURL: "https://studio-carnemolla-default-rtdb.europe-west1.firebasedatabase.app"
+  };
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // URL del NUOVO Cloudflare Worker dedicato allo studio
+  // (diverso da trainer-ai-proxy che resta intatto per Casa Manager)
+  // Sostituisci dopo aver creato il Worker "studio-carnemolla-proxy"
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  var WORKER_URL = 'https://studio-carnemolla-proxy.f-lonatica.workers.dev';
+
+  var app  = initializeApp(firebaseConfig);
+  var auth = getAuth(app);
+  var db   = getDatabase(app);
+
+  var params       = new URLSearchParams(window.location.search);
+  var pazienteId   = params.get('pazienteId');
+  var pazienteNome = decodeURIComponent(params.get('nome') || '');
+  var consensoId   = params.get('consensoId') || null;
+
+  var mediaRecorder, audioChunks = [], audioBlob = null;
+  var timerInterval, seconds = 0, isRecording = false;
+  var currentConsensoId = consensoId;
+
+  onAuthStateChanged(auth, function(user) {
+    if (!user) { window.location.href = 'login.html'; return; }
+    if (!pazienteId) { window.location.href = 'dashboard.html'; return; }
+    init(user);
+  });
+
+  document.getElementById('logout-btn').addEventListener('click', function() {
+    signOut(auth).then(function() { window.location.href = 'login.html'; });
+  });
+
+  async function init(user) {
+    document.getElementById('header-nome').textContent      = pazienteNome || 'Consenso Informato';
+    document.getElementById('paziente-nome-display').textContent = pazienteNome;
+    document.getElementById('back-btn').href = 'paziente.html?id=' + pazienteId;
+
+    if (consensoId) {
+      var snap = await get(ref(db, 'consensi/' + consensoId));
+      if (snap.exists()) {
+        var c = snap.val();
+        document.getElementById('trascrizione').value = c.trascrizione || '';
+        showFaseTrascrizione(c.stato);
+      }
+    }
+
+    document.getElementById('loading').classList.add('hidden');
+    document.getElementById('content').classList.remove('hidden');
+  }
+
+  // ── Steps UI ───────────────────────────────────
+  function setStep(n) {
+    for (var i = 1; i <= 3; i++) {
+      var el = document.getElementById('step-' + i);
+      el.classList.remove('active','done');
+      if (i < n) el.classList.add('done');
+      if (i === n) el.classList.add('active');
+    }
+  }
+
+  function showFaseTrascrizione(stato) {
+    document.getElementById('fase-registrazione').classList.add('hidden');
+    document.getElementById('fase-trascrizione').classList.remove('hidden');
+    setStep(stato === 'validato' ? 3 : 2);
+    var badge = stato === 'validato'
+      ? '<span class="badge badge-validato">Validato</span>'
+      : '<span class="badge badge-bozza">Bozza</span>';
+    document.getElementById('consenso-stato-badge').innerHTML = badge;
+  }
+
+  // ── Timer ──────────────────────────────────────
+  function updateTimer() {
+    seconds++;
+    var m = String(Math.floor(seconds/60)).padStart(2,'0');
+    var s = String(seconds%60).padStart(2,'0');
+    document.getElementById('timer').textContent = m + ':' + s;
+  }
+
+  // ── Registrazione ──────────────────────────────
+  var recordBtn = document.getElementById('record-btn');
+
+  recordBtn.addEventListener('click', async function() {
+    if (!isRecording) {
+      try {
+        var stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioChunks = [];
+        var mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus'
+          : MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : 'audio/webm';
+
+        mediaRecorder = new MediaRecorder(stream, { mimeType: mimeType });
+        mediaRecorder.ondataavailable = function(e) { if (e.data.size > 0) audioChunks.push(e.data); };
+        mediaRecorder.onstop = function() {
+          audioBlob = new Blob(audioChunks, { type: mimeType });
+          document.getElementById('audio-player').src = URL.createObjectURL(audioBlob);
+          document.getElementById('playback-section').classList.remove('hidden');
+          stream.getTracks().forEach(function(t) { t.stop(); });
+        };
+
+        mediaRecorder.start(1000);
+        isRecording = true; seconds = 0;
+        timerInterval = setInterval(updateTimer, 1000);
+        recordBtn.className = 'recording-btn recording';
+        recordBtn.textContent = '⏹';
+        document.getElementById('recording-status').textContent = '● Registrazione in corso…';
+        document.getElementById('recording-status').className = 'recording-status active';
+        setStep(1);
+
+      } catch(err) {
+        alert('Impossibile accedere al microfono. Controlla i permessi del browser.');
+      }
+    } else {
+      mediaRecorder.stop();
+      isRecording = false;
+      clearInterval(timerInterval);
+      recordBtn.className = 'recording-btn stopped';
+      recordBtn.textContent = '✓';
+      document.getElementById('recording-status').textContent = 'Registrazione completata.';
+      document.getElementById('recording-status').className = 'recording-status';
+    }
+  });
+
+  document.getElementById('restart-btn').addEventListener('click', function() {
+    audioBlob = null; audioChunks = []; seconds = 0;
+    document.getElementById('timer').textContent = '00:00';
+    document.getElementById('recording-status').textContent = 'Pronto alla registrazione';
+    document.getElementById('recording-status').className = 'recording-status';
+    document.getElementById('playback-section').classList.add('hidden');
+    recordBtn.className = 'recording-btn idle';
+    recordBtn.textContent = '🎙';
+    isRecording = false;
+  });
+
+  // ── Trascrizione ───────────────────────────────
+  document.getElementById('transcribe-btn').addEventListener('click', async function() {
+    if (!audioBlob) return;
+
+    var btn    = document.getElementById('transcribe-btn');
+    var txt    = document.getElementById('transcribe-text');
+    var spin   = document.getElementById('transcribe-spinner');
+    var errDiv = document.getElementById('transcribe-error');
+
+    btn.disabled = true;
+    txt.textContent = 'Conversione audio…';
+    spin.classList.remove('hidden');
+    errDiv.classList.add('hidden');
+    setStep(2);
+
+    try {
+      // Converti audio in base64
+      var audioBase64 = await new Promise(function(resolve, reject) {
+        var reader = new FileReader();
+        reader.onload = function() { resolve(reader.result.split(',')[1]); };
+        reader.onerror = reject;
+        reader.readAsDataURL(audioBlob);
+      });
+
+      txt.textContent = 'Trascrizione con Claude AI…';
+
+      // Chiama il Cloudflare Worker
+      var response = await fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          audio: audioBase64,
+          mimeType: audioBlob.type,
+          pazienteNome: pazienteNome
+        })
+      });
+
+      if (!response.ok) {
+        var errData = await response.json().catch(function() { return {}; });
+        throw new Error(errData.error || 'Errore risposta server (' + response.status + ')');
+      }
+
+      var data = await response.json();
+      var trascrizione = data.trascrizione || '';
+
+      // Salva in Firebase RTDB
+      if (!currentConsensoId) {
+        var newRef = await push(ref(db, 'consensi'), {
+          pazienteId:         pazienteId,
+          pazienteNome:       pazienteNome,
+          trascrizione:       trascrizione,
+          stato:              'bozza',
+          dataRegistrazione:  serverTimestamp()
+        });
+        currentConsensoId = newRef.key;
+      } else {
+        await update(ref(db, 'consensi/' + currentConsensoId), { trascrizione: trascrizione });
+      }
+
+      document.getElementById('trascrizione').value = trascrizione;
+      showFaseTrascrizione('bozza');
+
+    } catch(err) {
+      console.error(err);
+      document.getElementById('transcribe-error-text').textContent = err.message || 'Errore trascrizione. Riprova.';
+      errDiv.classList.remove('hidden');
+      btn.disabled = false;
+      txt.textContent = '🤖 Trascrivi con Claude AI';
+      spin.classList.add('hidden');
+    }
+  });
+
+  // ── Salva / Valida ─────────────────────────────
+  document.getElementById('salva-bozza-btn').addEventListener('click', function() { saveConsensus('bozza'); });
+  document.getElementById('valida-btn').addEventListener('click', function() { saveConsensus('validato'); });
+
+  async function saveConsensus(stato) {
+    var isBozza   = stato === 'bozza';
+    var btnId     = isBozza ? 'salva-bozza-btn' : 'valida-btn';
+    var txtId     = isBozza ? 'bozza-text'      : 'valida-text';
+    var spinId    = isBozza ? 'bozza-spinner'   : 'valida-spinner';
+    var trascrizione = document.getElementById('trascrizione').value.trim();
+
+    if (!trascrizione) { alert('La trascrizione è vuota.'); return; }
+
+    document.getElementById(btnId).disabled = true;
+    document.getElementById(spinId).classList.remove('hidden');
+    document.getElementById('save-success').classList.add('hidden');
+    document.getElementById('save-error').classList.add('hidden');
+
+    try {
+      var updateData = { trascrizione: trascrizione, stato: stato };
+      if (stato === 'validato') {
+        updateData.dataValidazione = serverTimestamp();
+        updateData.validatoDa      = auth.currentUser ? auth.currentUser.email : '';
+      }
+
+      if (currentConsensoId) {
+        await update(ref(db, 'consensi/' + currentConsensoId), updateData);
+      } else {
+        var newRef = await push(ref(db, 'consensi'), Object.assign({
+          pazienteId: pazienteId, pazienteNome: pazienteNome,
+          dataRegistrazione: serverTimestamp()
+        }, updateData));
+        currentConsensoId = newRef.key;
+      }
+
+      var msgEl = document.getElementById('save-success-text');
+      msgEl.textContent = stato === 'validato'
+        ? '✓ Consenso validato e archiviato.'
+        : '✓ Bozza salvata. Puoi completarla in seguito.';
+      document.getElementById('save-success').classList.remove('hidden');
+      showFaseTrascrizione(stato);
+      setStep(stato === 'validato' ? 3 : 2);
+
+    } catch(err) {
+      console.error(err);
+      document.getElementById('save-error').classList.remove('hidden');
+    } finally {
+      document.getElementById(btnId).disabled = false;
+      document.getElementById(spinId).classList.add('hidden');
+      document.getElementById(txtId).textContent = isBozza ? '💾 Salva Bozza' : '✅ Valida e Archivia';
+    }
+  }
+</script>
+</body>
+</html>

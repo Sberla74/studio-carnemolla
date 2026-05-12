@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Accesso – Studio Carnemolla</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 16px; }
+    .login-card { width: 100%; max-width: 380px; }
+    .login-header { text-align: center; margin-bottom: 32px; }
+    .login-logo { width: 64px; height: 64px; background: var(--primary); border-radius: var(--radius-xl); display: flex; align-items: center; justify-content: center; color: white; font-size: 26px; font-weight: 700; margin: 0 auto 16px; }
+    .login-header h1 { font-size: 22px; }
+    .login-header p { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+  </style>
+</head>
+<body>
+<div class="login-card card">
+  <div class="login-header">
+    <div class="login-logo">EC</div>
+    <h1>Studio Ortodontico</h1>
+    <p>Dott.ssa Elena Carnemolla</p>
+  </div>
+  <form id="login-form" novalidate>
+    <div class="form-group">
+      <label for="email">Email</label>
+      <input type="email" id="email" autocomplete="email" placeholder="dottoressa@studio.it" autofocus>
+    </div>
+    <div class="form-group">
+      <label for="password">Password</label>
+      <input type="password" id="password" autocomplete="current-password" placeholder="••••••••">
+    </div>
+    <div id="error-msg" class="alert alert-error hidden mt-2 mb-4">
+      <span>⚠</span><span id="error-text">Credenziali non valide.</span>
+    </div>
+    <button type="submit" class="btn btn-primary btn-block btn-lg" id="login-btn">
+      <span id="btn-text">Accedi</span>
+      <span id="btn-spinner" class="spinner hidden"></span>
+    </button>
+  </form>
+</div>
+
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+  import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // CONFIGURAZIONE FIREBASE – da sostituire
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  var firebaseConfig = {
+    apiKey:      "AIzaSyDLrgBwcVllC8naNv2nNSUevWHzATedTxE",
+    authDomain:  "studio-carnemolla.firebaseapp.com",
+    databaseURL: "https://studio-carnemolla-default-rtdb.europe-west1.firebasedatabase.app"
+  };
+
+  var app  = initializeApp(firebaseConfig);
+  var auth = getAuth(app);
+
+  onAuthStateChanged(auth, function(user) {
+    if (user) window.location.href = 'dashboard.html';
+  });
+
+  document.getElementById('login-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    var email    = document.getElementById('email').value.trim();
+    var password = document.getElementById('password').value;
+    var btn      = document.getElementById('login-btn');
+    var btnTxt   = document.getElementById('btn-text');
+    var spinner  = document.getElementById('btn-spinner');
+    var errMsg   = document.getElementById('error-msg');
+    var errTxt   = document.getElementById('error-text');
+
+    if (!email || !password) {
+      errTxt.textContent = 'Inserisci email e password.';
+      errMsg.classList.remove('hidden');
+      return;
+    }
+
+    btn.disabled = true;
+    btnTxt.textContent = 'Accesso…';
+    spinner.classList.remove('hidden');
+    errMsg.classList.add('hidden');
+
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      window.location.href = 'dashboard.html';
+    } catch (err) {
+      var msgs = {
+        'auth/user-not-found':     'Email non registrata.',
+        'auth/wrong-password':     'Password errata.',
+        'auth/invalid-email':      'Email non valida.',
+        'auth/too-many-requests':  'Troppi tentativi. Riprova più tardi.',
+        'auth/invalid-credential': 'Email o password errati.'
+      };
+      errTxt.textContent = msgs[err.code] || 'Errore di accesso. Riprova.';
+      errMsg.classList.remove('hidden');
+      btn.disabled = false;
+      btnTxt.textContent = 'Accedi';
+      spinner.classList.add('hidden');
+    }
+  });
+</script>
+</body>
+</html>

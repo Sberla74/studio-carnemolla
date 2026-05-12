@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard – Studio Carnemolla</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    .search-bar { display:flex; gap:12px; margin-bottom:16px; }
+    .search-bar input { max-width:320px; }
+    .page-title { display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; flex-wrap:wrap; gap:12px; }
+    .nome-cell { font-weight:600; }
+    td .btn { font-size:12px; padding:5px 10px; }
+  </style>
+</head>
+<body>
+
+<header class="nav-header">
+  <div class="nav-brand">
+    <div class="nav-logo">EC</div>
+    <div>
+      <div class="nav-title">Dott.ssa Elena Carnemolla</div>
+      <div class="nav-subtitle">Specialista in Ortodonzia</div>
+    </div>
+  </div>
+  <div class="nav-actions">
+    <button class="btn btn-secondary btn-sm" id="qr-btn">📱 QR Form</button>
+    <button class="btn btn-secondary btn-sm" id="logout-btn">Esci</button>
+  </div>
+</header>
+
+<main class="dash-content">
+  <div class="page-title">
+    <h1 style="font-size:22px;">Pazienti</h1>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-icon">👥</div><div class="stat-info"><h3 id="stat-totale">–</h3><p>Pazienti totali</p></div></div>
+    <div class="stat-card"><div class="stat-icon">🆕</div><div class="stat-info"><h3 id="stat-nuovi">–</h3><p>Nuovi oggi</p></div></div>
+    <div class="stat-card"><div class="stat-icon">📝</div><div class="stat-info"><h3 id="stat-bozza">–</h3><p>Consensi in bozza</p></div></div>
+    <div class="stat-card"><div class="stat-icon">✅</div><div class="stat-info"><h3 id="stat-validati">–</h3><p>Consensi validati</p></div></div>
+  </div>
+
+  <div class="search-bar">
+    <input type="text" id="search" placeholder="Cerca per nome o cognome…">
+  </div>
+
+  <div class="filter-tabs">
+    <button class="filter-tab active" data-filter="tutti">Tutti</button>
+    <button class="filter-tab" data-filter="nessuno">Senza consenso</button>
+    <button class="filter-tab" data-filter="bozza">Bozza consenso</button>
+    <button class="filter-tab" data-filter="validato">Consenso validato</button>
+  </div>
+
+  <div class="table-container">
+    <table>
+      <thead>
+        <tr>
+          <th>Paziente</th>
+          <th class="hide-mobile">Email / Tel</th>
+          <th class="hide-mobile">Registrato</th>
+          <th>Stato consenso</th>
+          <th>Azioni</th>
+        </tr>
+      </thead>
+      <tbody id="patients-body">
+        <tr><td colspan="5" class="text-center text-muted" style="padding:32px">Caricamento…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</main>
+
+<!-- Modal QR -->
+<div class="modal-overlay hidden" id="qr-modal">
+  <div class="modal-box">
+    <h2 style="font-size:18px; margin-bottom:8px;">QR Code – Modulo Paziente</h2>
+    <p class="text-muted mb-4" style="font-size:13px;">Il paziente inquadra il codice con il telefono e compila il modulo.</p>
+    <div id="qr-container" style="margin:0 auto 16px; width:200px; height:200px; display:flex; align-items:center; justify-content:center; border:1px solid var(--border); border-radius:var(--radius); background:white;"></div>
+    <p id="qr-url" class="text-muted" style="font-size:11px; word-break:break-all; margin-bottom:16px;"></p>
+    <div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
+      <button class="btn btn-secondary btn-sm" id="copy-link-btn">📋 Copia link</button>
+      <button class="btn btn-primary btn-sm" id="qr-close-btn">Chiudi</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+  import { getAuth, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+  import { getDatabase, ref, onValue, get } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+
+  var firebaseConfig = {
+    apiKey:      "AIzaSyDLrgBwcVllC8naNv2nNSUevWHzATedTxE",
+    authDomain:  "studio-carnemolla.firebaseapp.com",
+    databaseURL: "https://studio-carnemolla-default-rtdb.europe-west1.firebasedatabase.app"
+  };
+
+  var app  = initializeApp(firebaseConfig);
+  var auth = getAuth(app);
+  var db   = getDatabase(app);
+
+  // Auth guard
+  onAuthStateChanged(auth, function(user) {
+    if (!user) window.location.href = 'login.html';
+  });
+  document.getElementById('logout-btn').addEventListener('click', function() {
+    signOut(auth).then(function() { window.location.href = 'login.html'; });
+  });
+
+  var allPatients   = [];
+  var consensiMap   = {};  // pazienteId → stato ('bozza'|'validato')
+  var currentFilter = 'tutti';
+  var searchTerm    = '';
+
+  function fmt(ts) {
+    if (!ts) return '–';
+    return new Date(ts).toLocaleDateString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric' });
+  }
+
+  function badgeHtml(stato) {
+    if (stato === 'validato') return '<span class="badge badge-validato">Validato</span>';
+    if (stato === 'bozza')    return '<span class="badge badge-bozza">Bozza</span>';
+    return '<span class="badge badge-nuovo">Nessuno</span>';
+  }
+
+  function updateStats() {
+    var today = new Date(); today.setHours(0,0,0,0);
+    document.getElementById('stat-totale').textContent  = allPatients.length;
+    document.getElementById('stat-nuovi').textContent   = allPatients.filter(function(p) {
+      return p.dataRegistrazione && new Date(p.dataRegistrazione) >= today;
+    }).length;
+    document.getElementById('stat-bozza').textContent   = allPatients.filter(function(p) { return consensiMap[p.id] === 'bozza'; }).length;
+    document.getElementById('stat-validati').textContent = allPatients.filter(function(p) { return consensiMap[p.id] === 'validato'; }).length;
+  }
+
+  function renderTable() {
+    var body = document.getElementById('patients-body');
+    var list = allPatients.filter(function(p) {
+      var cs = consensiMap[p.id] || 'nessuno';
+      var matchFilter = currentFilter === 'tutti' || cs === currentFilter;
+      var matchSearch = !searchTerm || (p.nome + ' ' + p.cognome).toLowerCase().includes(searchTerm.toLowerCase());
+      return matchFilter && matchSearch;
+    });
+
+    if (!list.length) {
+      body.innerHTML = '<tr><td colspan="5" class="text-center text-muted" style="padding:32px">Nessun paziente trovato.</td></tr>';
+      return;
+    }
+
+    body.innerHTML = list.map(function(p) {
+      var cs = consensiMap[p.id] || 'nessuno';
+      var nome = encodeURIComponent((p.nome || '') + ' ' + (p.cognome || ''));
+      return '<tr onclick="window.location=\'paziente.html?id=' + p.id + '\'">' +
+        '<td class="nome-cell">' + (p.cognome || '') + ' ' + (p.nome || '') + '</td>' +
+        '<td class="hide-mobile" style="color:var(--text-muted)">' + (p.email || '–') + '<br>' + (p.telefono || '') + '</td>' +
+        '<td class="hide-mobile" style="color:var(--text-muted)">' + fmt(p.dataRegistrazione) + '</td>' +
+        '<td>' + badgeHtml(cs) + '</td>' +
+        '<td onclick="event.stopPropagation()" style="display:flex;gap:6px;">' +
+          '<a href="paziente.html?id=' + p.id + '" class="btn btn-secondary btn-sm">Scheda</a>' +
+          '<a href="consenso.html?pazienteId=' + p.id + '&nome=' + nome + '" class="btn btn-primary btn-sm">🎙</a>' +
+        '</td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  // Carica consensi una volta, poi aggiorna la tabella
+  async function loadConsenti() {
+    var snap = await get(ref(db, 'consensi'));
+    consensiMap = {};
+    if (snap.exists()) {
+      var data = snap.val();
+      Object.values(data).forEach(function(c) {
+        // Tieni lo stato più "avanzato" per ogni paziente
+        if (!consensiMap[c.pazienteId] || c.stato === 'validato') {
+          consensiMap[c.pazienteId] = c.stato;
+        }
+      });
+    }
+  }
+
+  // Listener real-time sui pazienti
+  onValue(ref(db, 'pazienti'), async function(snap) {
+    await loadConsenti();
+    allPatients = [];
+    if (snap.exists()) {
+      var data = snap.val();
+      Object.entries(data).forEach(function(entry) {
+        allPatients.push(Object.assign({ id: entry[0] }, entry[1]));
+      });
+      // Ordina per data registrazione decrescente
+      allPatients.sort(function(a, b) { return (b.dataRegistrazione || 0) - (a.dataRegistrazione || 0); });
+    }
+    updateStats();
+    renderTable();
+  });
+
+  // Filtri
+  document.querySelectorAll('.filter-tab').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.filter-tab').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      currentFilter = btn.dataset.filter;
+      renderTable();
+    });
+  });
+
+  document.getElementById('search').addEventListener('input', function(e) {
+    searchTerm = e.target.value;
+    renderTable();
+  });
+
+  // QR Code
+  var formUrl = window.location.origin + window.location.pathname.replace('dashboard.html','') + 'form.html';
+  document.getElementById('qr-btn').addEventListener('click', function() {
+    document.getElementById('qr-modal').classList.remove('hidden');
+    document.getElementById('qr-url').textContent = formUrl;
+    var cont = document.getElementById('qr-container');
+    cont.innerHTML = '<canvas id="qr-canvas"></canvas>';
+    QRCode.toCanvas(document.getElementById('qr-canvas'), formUrl, { width:200, margin:1 });
+  });
+  document.getElementById('qr-close-btn').addEventListener('click', function() {
+    document.getElementById('qr-modal').classList.add('hidden');
+  });
+  document.getElementById('copy-link-btn').addEventListener('click', function() {
+    navigator.clipboard.writeText(formUrl).then(function() {
+      document.getElementById('copy-link-btn').textContent = '✓ Copiato!';
+      setTimeout(function() { document.getElementById('copy-link-btn').textContent = '📋 Copia link'; }, 2000);
+    });
+  });
+  document.getElementById('qr-modal').addEventListener('click', function(e) {
+    if (e.target === document.getElementById('qr-modal')) document.getElementById('qr-modal').classList.add('hidden');
+  });
+</script>
+</body>
+</html>

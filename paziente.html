@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scheda Paziente – Studio Carnemolla</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    .firma-preview { max-width:260px; border:1px solid var(--border); border-radius:var(--radius); background:var(--bg-secondary); }
+    .note-box { background:var(--bg-secondary); border:1px solid var(--border); border-radius:var(--radius); padding:12px; font-size:14px; white-space:pre-wrap; }
+    .consenso-card { background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-lg); padding:16px; margin-bottom:12px; }
+    .trascrizione-preview { font-size:13px; color:var(--text-muted); display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; white-space:pre-wrap; }
+  </style>
+</head>
+<body>
+
+<header class="nav-header">
+  <div class="nav-brand">
+    <div class="nav-logo">EC</div>
+    <div>
+      <div class="nav-title" id="header-nome">Scheda Paziente</div>
+      <div class="nav-subtitle">Studio Ortodontico</div>
+    </div>
+  </div>
+  <div class="nav-actions">
+    <a href="dashboard.html" class="btn btn-secondary btn-sm">← Dashboard</a>
+    <button class="btn btn-secondary btn-sm" id="logout-btn">Esci</button>
+  </div>
+</header>
+
+<main class="dash-content">
+  <div id="loading" class="text-center text-muted" style="padding:64px">Caricamento…</div>
+  <div id="content" class="hidden">
+
+    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:24px;">
+      <div style="display:flex; align-items:center; gap:16px;">
+        <div style="width:52px;height:52px;background:var(--primary-bg);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:var(--primary);" id="avatar">–</div>
+        <div>
+          <h1 style="font-size:22px;" id="nome-header">–</h1>
+          <div id="stato-badge" style="margin-top:4px;"></div>
+        </div>
+      </div>
+      <a id="consenso-btn" href="#" class="btn btn-primary">🎙 Registra Consenso Informato</a>
+    </div>
+
+    <!-- Dati anagrafici -->
+    <div class="card mb-6">
+      <div class="card-header">
+        <span class="card-title">Dati Anagrafici</span>
+        <span id="data-reg" class="text-muted" style="font-size:13px;"></span>
+      </div>
+      <div class="info-grid">
+        <div class="info-item"><label>Nome</label><p id="inf-nome">–</p></div>
+        <div class="info-item"><label>Cognome</label><p id="inf-cognome">–</p></div>
+        <div class="info-item"><label>Data di nascita</label><p id="inf-nascita">–</p></div>
+        <div class="info-item"><label>Telefono</label><p id="inf-telefono">–</p></div>
+        <div class="info-item"><label>Email</label><p id="inf-email">–</p></div>
+        <div class="info-item"><label>Residenza</label><p id="inf-indirizzo">–</p></div>
+        <div class="info-item"><label>Privacy</label><p id="inf-privacy">–</p></div>
+        <div class="info-item"><label>Comunicazioni</label><p id="inf-marketing">–</p></div>
+      </div>
+      <div id="note-section" class="hidden mt-4">
+        <label style="font-size:11px;font-weight:500;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;display:block;">Note cliniche</label>
+        <div class="note-box" id="inf-note"></div>
+      </div>
+    </div>
+
+    <!-- Firma -->
+    <div class="card mb-6">
+      <div class="card-title mb-4">Firma del Paziente</div>
+      <img id="firma-img" class="firma-preview" alt="Firma paziente">
+    </div>
+
+    <!-- Consensi -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Consensi Informati</span>
+        <a id="consenso-btn-2" href="#" class="btn btn-primary btn-sm">+ Nuovo</a>
+      </div>
+      <div id="consensi-lista">
+        <div class="empty-state" style="padding:32px">
+          <div class="icon">📋</div>
+          <p>Nessun consenso informato ancora registrato.</p>
+          <a id="primo-consenso-btn" href="#" class="btn btn-primary mt-4">🎙 Registra il primo</a>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+  import { getAuth, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+  import { getDatabase, ref, get } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+
+  var firebaseConfig = {
+    apiKey:      "AIzaSyDLrgBwcVllC8naNv2nNSUevWHzATedTxE",
+    authDomain:  "studio-carnemolla.firebaseapp.com",
+    databaseURL: "https://studio-carnemolla-default-rtdb.europe-west1.firebasedatabase.app"
+  };
+
+  var app  = initializeApp(firebaseConfig);
+  var auth = getAuth(app);
+  var db   = getDatabase(app);
+
+  var params     = new URLSearchParams(window.location.search);
+  var pazienteId = params.get('id');
+
+  onAuthStateChanged(auth, function(user) {
+    if (!user) { window.location.href = 'login.html'; return; }
+    if (!pazienteId) { window.location.href = 'dashboard.html'; return; }
+    loadPaziente();
+  });
+
+  document.getElementById('logout-btn').addEventListener('click', function() {
+    signOut(auth).then(function() { window.location.href = 'login.html'; });
+  });
+
+  function fmt(ts) {
+    if (!ts) return '–';
+    return new Date(ts).toLocaleDateString('it-IT');
+  }
+
+  function badgeHtml(stato) {
+    if (stato === 'validato') return '<span class="badge badge-validato">Validato</span>';
+    if (stato === 'bozza')    return '<span class="badge badge-bozza">Bozza</span>';
+    return '';
+  }
+
+  async function loadPaziente() {
+    var snap = await get(ref(db, 'pazienti/' + pazienteId));
+    if (!snap.exists()) { window.location.href = 'dashboard.html'; return; }
+
+    var p = snap.val();
+    var nome = (p.nome || '') + ' ' + (p.cognome || '');
+    var nomeEnc = encodeURIComponent(nome);
+    var consensoHref = 'consenso.html?pazienteId=' + pazienteId + '&nome=' + nomeEnc;
+
+    document.getElementById('header-nome').textContent  = nome.trim();
+    document.getElementById('nome-header').textContent  = (p.cognome || '') + ' ' + (p.nome || '');
+    document.getElementById('avatar').textContent       = ((p.nome||'')[0]||'') + ((p.cognome||'')[0]||'');
+    document.title = nome.trim() + ' – Studio Carnemolla';
+
+    document.getElementById('consenso-btn').href   = consensoHref;
+    document.getElementById('consenso-btn-2').href = consensoHref;
+    document.getElementById('primo-consenso-btn').href = consensoHref;
+
+    document.getElementById('inf-nome').textContent     = p.nome || '–';
+    document.getElementById('inf-cognome').textContent  = p.cognome || '–';
+    document.getElementById('inf-nascita').textContent  = p.dataNascita ? new Date(p.dataNascita).toLocaleDateString('it-IT') : '–';
+    document.getElementById('inf-telefono').textContent = p.telefono || '–';
+    document.getElementById('inf-email').textContent    = p.email || '–';
+    document.getElementById('inf-privacy').textContent  = p.privacy ? '✓ Accettata' : '✗ Non accettata';
+    document.getElementById('inf-marketing').textContent= p.marketing ? '✓ Sì' : '✗ No';
+    document.getElementById('data-reg').textContent     = 'Registrato il ' + fmt(p.dataRegistrazione);
+
+    var via   = [p.via, p.civico].filter(Boolean).join(' ');
+    var luogo = [p.cap, p.citta, p.provincia].filter(Boolean).join(' ');
+    document.getElementById('inf-indirizzo').textContent = [via, luogo].filter(Boolean).join(', ') || '–';
+
+    if (p.note) {
+      document.getElementById('note-section').classList.remove('hidden');
+      document.getElementById('inf-note').textContent = p.note;
+    }
+    if (p.firma) document.getElementById('firma-img').src = p.firma;
+
+    await loadConsenti(pazienteId, nome.trim(), nomeEnc);
+
+    document.getElementById('loading').classList.add('hidden');
+    document.getElementById('content').classList.remove('hidden');
+  }
+
+  async function loadConsenti(pid, nomeCompleto, nomeEnc) {
+    var snap = await get(ref(db, 'consensi'));
+    var consensi = [];
+
+    if (snap.exists()) {
+      var data = snap.val();
+      Object.entries(data).forEach(function(entry) {
+        var c = entry[1];
+        if (c.pazienteId === pid) {
+          consensi.push(Object.assign({ id: entry[0] }, c));
+        }
+      });
+      consensi.sort(function(a, b) { return (b.dataRegistrazione || 0) - (a.dataRegistrazione || 0); });
+    }
+
+    if (!consensi.length) {
+      document.getElementById('stato-badge').innerHTML = '<span class="badge badge-nuovo">Nessun consenso</span>';
+      return;
+    }
+
+    document.getElementById('stato-badge').innerHTML = badgeHtml(consensi[0].stato);
+
+    document.getElementById('consensi-lista').innerHTML = consensi.map(function(c) {
+      var preview = c.trascrizione ? c.trascrizione.substring(0, 200) + '…' : null;
+      return '<div class="consenso-card">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
+          '<div style="display:flex;align-items:center;gap:8px;">' +
+            '<span style="font-weight:600;font-size:14px;">Consenso del ' + fmt(c.dataRegistrazione) + '</span>' +
+            badgeHtml(c.stato) +
+          '</div>' +
+          '<a href="consenso.html?pazienteId=' + pid + '&nome=' + nomeEnc + '&consensoId=' + c.id + '" class="btn btn-secondary btn-sm">Apri</a>' +
+        '</div>' +
+        (preview
+          ? '<div class="trascrizione-preview">' + preview + '</div>'
+          : '<p class="text-muted" style="font-size:13px;">Nessuna trascrizione.</p>') +
+        (c.stato === 'validato' && c.dataValidazione
+          ? '<p class="text-muted mt-2" style="font-size:11px;">Validato il ' + fmt(c.dataValidazione) + '</p>'
+          : '') +
+      '</div>';
+    }).join('');
+  }
+</script>
+</body>
+</html>
