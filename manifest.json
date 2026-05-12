@@ -1,0 +1,19 @@
+{
+  "name": "Studio Dott.ssa Carnemolla",
+  "short_name": "Studio EC",
+  "description": "Gestione pazienti e consensi informati – Studio Ortodontico",
+  "start_url": "/studio-carnemolla/login.html",
+  "scope": "/studio-carnemolla/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0F766E",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
