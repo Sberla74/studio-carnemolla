@@ -17,11 +17,14 @@
     .recording-status { font-size:14px; color:var(--text-muted); min-height:20px; }
     .recording-status.active { color:var(--error); font-weight:600; }
     textarea.trascrizione { min-height:400px; font-size:14px; line-height:1.8; }
+    textarea.live-transcript { min-height:140px; font-size:14px; line-height:1.7; background:var(--bg-secondary); color:var(--text); border:1px solid var(--border); border-radius:var(--radius); padding:12px; width:100%; box-sizing:border-box; resize:vertical; }
+    textarea.live-transcript:focus { outline:none; border-color:var(--primary); }
     .action-bar { display:flex; gap:12px; flex-wrap:wrap; justify-content:flex-end; margin-top:16px; }
     .step { display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text-muted); padding:10px 14px; border-radius:var(--radius); background:var(--bg-secondary); border:1px solid var(--border); }
     .step.active { background:var(--primary-bg); border-color:var(--primary); color:var(--primary); font-weight:600; }
     .step.done { background:var(--success-bg); border-color:#BBF7D0; color:var(--success); }
     .steps { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:24px; }
+    .interim-text { color:var(--text-muted); font-style:italic; }
   </style>
 </head>
 <body>
@@ -45,8 +48,8 @@
   <div id="content" class="hidden">
 
     <div class="steps">
-      <div class="step active" id="step-1">🎙 1. Registrazione</div>
-      <div class="step" id="step-2">🤖 2. Trascrizione AI</div>
+      <div class="step active" id="step-1">🎙 1. Dettatura</div>
+      <div class="step" id="step-2">🤖 2. Strutturazione AI</div>
       <div class="step" id="step-3">✅ 3. Validazione</div>
     </div>
 
@@ -55,39 +58,48 @@
       <div><strong id="paziente-nome-display">–</strong><span class="text-muted" style="font-size:13px;"> · Consenso informato del colloquio</span></div>
     </div>
 
-    <!-- FASE 1: Registrazione -->
+    <!-- FASE 1: Dettatura -->
     <div id="fase-registrazione">
-      <div class="recording-area">
-        <div>
-          <h2 style="font-size:18px; margin-bottom:8px;">Registra il colloquio</h2>
-          <p class="text-muted" style="font-size:13px; max-width:360px;">
-            Premi il tasto rosso per avviare la registrazione. Al termine premi di nuovo per fermare.
-          </p>
-        </div>
-        <button id="record-btn" class="recording-btn idle" title="Avvia registrazione">🎙</button>
-        <div class="timer" id="timer">00:00</div>
-        <div class="recording-status" id="recording-status">Pronto alla registrazione</div>
+
+      <div id="no-speech-warning" class="alert alert-error hidden mb-4">
+        <span>⚠</span>
+        <span>Il tuo browser non supporta la dettatura vocale. Usa Chrome su Android o Safari su iPhone. In alternativa puoi digitare gli appunti direttamente nel campo qui sotto.</span>
       </div>
 
-      <!-- Playback -->
-      <div id="playback-section" class="card mb-6 hidden">
-        <div class="card-title mb-4">Ascolta la registrazione</div>
-        <audio id="audio-player" controls style="width:100%;max-width:400px;"></audio>
+      <div class="recording-area">
+        <div>
+          <h2 style="font-size:18px; margin-bottom:8px;">Ditta gli appunti del colloquio</h2>
+          <p class="text-muted" style="font-size:13px; max-width:380px;">
+            Premi il tasto rosso, poi parla liberamente. Puoi descrivere diagnosi, piano di cura, rischi e tutto ciò che hai discusso con il paziente. Premi di nuovo per fermare.
+          </p>
+        </div>
+        <button id="record-btn" class="recording-btn idle" title="Avvia dettatura">🎙</button>
+        <div class="timer" id="timer">00:00</div>
+        <div class="recording-status" id="recording-status">Pronto alla dettatura</div>
+      </div>
+
+      <!-- Testo dettato in tempo reale -->
+      <div class="card mb-6">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+          <span class="card-title">Appunti dettati</span>
+          <button id="clear-transcript-btn" class="btn btn-secondary btn-sm">🗑 Cancella</button>
+        </div>
+        <p class="text-muted mb-3" style="font-size:12px;">Il testo compare qui mentre parli. Puoi anche modificarlo o digitare direttamente.</p>
+        <textarea id="live-transcript" class="live-transcript" placeholder="Gli appunti del colloquio appariranno qui mentre parli…"></textarea>
         <div class="action-bar">
-          <button id="restart-btn" class="btn btn-secondary">🔄 Ricomincia</button>
-          <button id="transcribe-btn" class="btn btn-primary">
-            <span id="transcribe-text">🤖 Trascrivi con Claude AI</span>
-            <span id="transcribe-spinner" class="spinner hidden"></span>
+          <button id="structure-btn" class="btn btn-primary" disabled>
+            <span id="structure-text">🤖 Struttura con Claude AI</span>
+            <span id="structure-spinner" class="spinner hidden"></span>
           </button>
         </div>
       </div>
 
       <div id="transcribe-error" class="alert alert-error hidden mb-4">
-        <span>⚠</span><span id="transcribe-error-text">Errore durante la trascrizione.</span>
+        <span>⚠</span><span id="transcribe-error-text">Errore durante la strutturazione.</span>
       </div>
     </div>
 
-    <!-- FASE 2 & 3: Trascrizione + Validazione -->
+    <!-- FASE 2 & 3: Strutturazione + Validazione -->
     <div id="fase-trascrizione" class="hidden">
       <div class="card">
         <div class="card-header">
@@ -95,10 +107,11 @@
           <span id="consenso-stato-badge"></span>
         </div>
         <p class="text-muted mb-4" style="font-size:13px;">
-          Leggi e correggi la trascrizione, poi clicca <strong>Valida e Archivia</strong>.
+          Leggi e correggi il documento, poi clicca <strong>Valida e Archivia</strong>.
         </p>
-        <textarea id="trascrizione" class="trascrizione" placeholder="La trascrizione apparirà qui…"></textarea>
+        <textarea id="trascrizione" class="trascrizione" placeholder="Il documento strutturato apparirà qui…"></textarea>
         <div class="action-bar">
+          <button id="torna-dettatura-btn" class="btn btn-secondary">🎙 Ridetta</button>
           <button id="salva-bozza-btn" class="btn btn-secondary">
             <span id="bozza-text">💾 Salva Bozza</span>
             <span id="bozza-spinner" class="spinner-dark spinner hidden"></span>
@@ -131,11 +144,6 @@
     databaseURL: "https://studio-carnemolla-default-rtdb.europe-west1.firebasedatabase.app"
   };
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // URL del NUOVO Cloudflare Worker dedicato allo studio
-  // (diverso da trainer-ai-proxy che resta intatto per Casa Manager)
-  // Sostituisci dopo aver creato il Worker "studio-carnemolla-proxy"
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   var WORKER_URL = 'https://studio-carnemolla-proxy.f-lonatica.workers.dev';
 
   var app  = initializeApp(firebaseConfig);
@@ -147,9 +155,50 @@
   var pazienteNome = decodeURIComponent(params.get('nome') || '');
   var consensoId   = params.get('consensoId') || null;
 
-  var mediaRecorder, audioChunks = [], audioBlob = null;
-  var timerInterval, seconds = 0, isRecording = false;
   var currentConsensoId = consensoId;
+  var timerInterval, seconds = 0, isRecording = false;
+
+  // ── Web Speech API ─────────────────────────────
+  var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  var recognition = null;
+  var finalTranscript = '';
+
+  if (SpeechRecognition) {
+    recognition = new SpeechRecognition();
+    recognition.lang = 'it-IT';
+    recognition.continuous = true;
+    recognition.interimResults = true;
+
+    recognition.onresult = function(event) {
+      var interim = '';
+      for (var i = event.resultIndex; i < event.results.length; i++) {
+        var result = event.results[i];
+        if (result.isFinal) {
+          finalTranscript += result[0].transcript + ' ';
+        } else {
+          interim += result[0].transcript;
+        }
+      }
+      var ta = document.getElementById('live-transcript');
+      ta.value = finalTranscript + (interim ? '…' + interim : '');
+      updateStructureBtn();
+    };
+
+    recognition.onerror = function(event) {
+      if (event.error === 'no-speech') return;
+      console.error('Speech error:', event.error);
+      stopRecording();
+      document.getElementById('recording-status').textContent = 'Errore microfono: ' + event.error;
+    };
+
+    recognition.onend = function() {
+      if (isRecording) {
+        // Riavvia automaticamente se l'utente non ha premuto stop
+        // (il browser interrompe dopo silenzio prolungato)
+        try { recognition.start(); } catch(e) { stopRecording(); }
+      }
+    };
+  }
 
   onAuthStateChanged(auth, function(user) {
     if (!user) { window.location.href = 'login.html'; return; }
@@ -162,9 +211,13 @@
   });
 
   async function init(user) {
-    document.getElementById('header-nome').textContent      = pazienteNome || 'Consenso Informato';
+    document.getElementById('header-nome').textContent          = pazienteNome || 'Consenso Informato';
     document.getElementById('paziente-nome-display').textContent = pazienteNome;
     document.getElementById('back-btn').href = 'paziente.html?id=' + pazienteId;
+
+    if (!SpeechRecognition) {
+      document.getElementById('no-speech-warning').classList.remove('hidden');
+    }
 
     if (consensoId) {
       var snap = await get(ref(db, 'consensi/' + consensoId));
@@ -207,95 +260,97 @@
     document.getElementById('timer').textContent = m + ':' + s;
   }
 
-  // ── Registrazione ──────────────────────────────
+  function updateStructureBtn() {
+    var ta = document.getElementById('live-transcript');
+    document.getElementById('structure-btn').disabled = !ta.value.trim();
+  }
+
+  // ── Dettatura ──────────────────────────────────
   var recordBtn = document.getElementById('record-btn');
 
-  recordBtn.addEventListener('click', async function() {
+  function stopRecording() {
+    if (recognition) { try { recognition.stop(); } catch(e) {} }
+    isRecording = false;
+    clearInterval(timerInterval);
+    recordBtn.className = 'recording-btn stopped';
+    recordBtn.textContent = '✓';
+    document.getElementById('recording-status').textContent = 'Dettatura completata. Puoi correggere il testo prima di strutturare.';
+    document.getElementById('recording-status').className = 'recording-status';
+    updateStructureBtn();
+  }
+
+  recordBtn.addEventListener('click', function() {
     if (!isRecording) {
-      try {
-        var stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        audioChunks = [];
-        var mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus'
-          : MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : 'audio/webm';
+      finalTranscript = '';
+      document.getElementById('live-transcript').value = '';
+      updateStructureBtn();
+      setStep(1);
 
-        mediaRecorder = new MediaRecorder(stream, { mimeType: mimeType });
-        mediaRecorder.ondataavailable = function(e) { if (e.data.size > 0) audioChunks.push(e.data); };
-        mediaRecorder.onstop = function() {
-          audioBlob = new Blob(audioChunks, { type: mimeType });
-          document.getElementById('audio-player').src = URL.createObjectURL(audioBlob);
-          document.getElementById('playback-section').classList.remove('hidden');
-          stream.getTracks().forEach(function(t) { t.stop(); });
-        };
-
-        mediaRecorder.start(1000);
-        isRecording = true; seconds = 0;
+      if (recognition) {
+        try {
+          recognition.start();
+          isRecording = true;
+          seconds = 0;
+          timerInterval = setInterval(updateTimer, 1000);
+          recordBtn.className = 'recording-btn recording';
+          recordBtn.textContent = '⏹';
+          document.getElementById('recording-status').textContent = '● Dettatura in corso… parla liberamente';
+          document.getElementById('recording-status').className = 'recording-status active';
+        } catch(err) {
+          alert('Impossibile accedere al microfono. Controlla i permessi del browser.');
+        }
+      } else {
+        // Nessuna Web Speech API: consenti comunque di digitare
+        isRecording = true;
+        seconds = 0;
         timerInterval = setInterval(updateTimer, 1000);
         recordBtn.className = 'recording-btn recording';
         recordBtn.textContent = '⏹';
-        document.getElementById('recording-status').textContent = '● Registrazione in corso…';
+        document.getElementById('recording-status').textContent = 'Digita gli appunti nell\'area sottostante';
         document.getElementById('recording-status').className = 'recording-status active';
-        setStep(1);
-
-      } catch(err) {
-        alert('Impossibile accedere al microfono. Controlla i permessi del browser.');
       }
     } else {
-      mediaRecorder.stop();
-      isRecording = false;
-      clearInterval(timerInterval);
-      recordBtn.className = 'recording-btn stopped';
-      recordBtn.textContent = '✓';
-      document.getElementById('recording-status').textContent = 'Registrazione completata.';
-      document.getElementById('recording-status').className = 'recording-status';
+      stopRecording();
     }
   });
 
-  document.getElementById('restart-btn').addEventListener('click', function() {
-    audioBlob = null; audioChunks = []; seconds = 0;
+  document.getElementById('live-transcript').addEventListener('input', updateStructureBtn);
+
+  document.getElementById('clear-transcript-btn').addEventListener('click', function() {
+    finalTranscript = '';
+    document.getElementById('live-transcript').value = '';
     document.getElementById('timer').textContent = '00:00';
-    document.getElementById('recording-status').textContent = 'Pronto alla registrazione';
+    document.getElementById('recording-status').textContent = 'Pronto alla dettatura';
     document.getElementById('recording-status').className = 'recording-status';
-    document.getElementById('playback-section').classList.add('hidden');
     recordBtn.className = 'recording-btn idle';
     recordBtn.textContent = '🎙';
     isRecording = false;
+    clearInterval(timerInterval);
+    seconds = 0;
+    updateStructureBtn();
   });
 
-  // ── Trascrizione ───────────────────────────────
-  document.getElementById('transcribe-btn').addEventListener('click', async function() {
-    if (!audioBlob) return;
+  // ── Strutturazione con Claude AI ───────────────
+  document.getElementById('structure-btn').addEventListener('click', async function() {
+    var transcript = document.getElementById('live-transcript').value.trim();
+    if (!transcript) return;
 
-    var btn    = document.getElementById('transcribe-btn');
-    var txt    = document.getElementById('transcribe-text');
-    var spin   = document.getElementById('transcribe-spinner');
+    var btn    = document.getElementById('structure-btn');
+    var txt    = document.getElementById('structure-text');
+    var spin   = document.getElementById('structure-spinner');
     var errDiv = document.getElementById('transcribe-error');
 
     btn.disabled = true;
-    txt.textContent = 'Conversione audio…';
+    txt.textContent = 'Claude sta strutturando…';
     spin.classList.remove('hidden');
     errDiv.classList.add('hidden');
     setStep(2);
 
     try {
-      // Converti audio in base64
-      var audioBase64 = await new Promise(function(resolve, reject) {
-        var reader = new FileReader();
-        reader.onload = function() { resolve(reader.result.split(',')[1]); };
-        reader.onerror = reject;
-        reader.readAsDataURL(audioBlob);
-      });
-
-      txt.textContent = 'Trascrizione con Claude AI…';
-
-      // Chiama il Cloudflare Worker
       var response = await fetch(WORKER_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          audio: audioBase64,
-          mimeType: audioBlob.type,
-          pazienteNome: pazienteNome
-        })
+        body: JSON.stringify({ transcript: transcript, pazienteNome: pazienteNome })
       });
 
       if (!response.ok) {
@@ -304,33 +359,39 @@
       }
 
       var data = await response.json();
-      var trascrizione = data.trascrizione || '';
+      var strutturato = data.trascrizione || '';
 
-      // Salva in Firebase RTDB
       if (!currentConsensoId) {
         var newRef = await push(ref(db, 'consensi'), {
-          pazienteId:         pazienteId,
-          pazienteNome:       pazienteNome,
-          trascrizione:       trascrizione,
-          stato:              'bozza',
-          dataRegistrazione:  serverTimestamp()
+          pazienteId:        pazienteId,
+          pazienteNome:      pazienteNome,
+          trascrizione:      strutturato,
+          stato:             'bozza',
+          dataRegistrazione: serverTimestamp()
         });
         currentConsensoId = newRef.key;
       } else {
-        await update(ref(db, 'consensi/' + currentConsensoId), { trascrizione: trascrizione });
+        await update(ref(db, 'consensi/' + currentConsensoId), { trascrizione: strutturato });
       }
 
-      document.getElementById('trascrizione').value = trascrizione;
+      document.getElementById('trascrizione').value = strutturato;
       showFaseTrascrizione('bozza');
 
     } catch(err) {
       console.error(err);
-      document.getElementById('transcribe-error-text').textContent = err.message || 'Errore trascrizione. Riprova.';
+      document.getElementById('transcribe-error-text').textContent = err.message || 'Errore strutturazione. Riprova.';
       errDiv.classList.remove('hidden');
       btn.disabled = false;
-      txt.textContent = '🤖 Trascrivi con Claude AI';
+      txt.textContent = '🤖 Struttura con Claude AI';
       spin.classList.add('hidden');
     }
+  });
+
+  // ── Torna alla dettatura ───────────────────────
+  document.getElementById('torna-dettatura-btn').addEventListener('click', function() {
+    document.getElementById('fase-trascrizione').classList.add('hidden');
+    document.getElementById('fase-registrazione').classList.remove('hidden');
+    setStep(1);
   });
 
   // ── Salva / Valida ─────────────────────────────
@@ -338,13 +399,13 @@
   document.getElementById('valida-btn').addEventListener('click', function() { saveConsensus('validato'); });
 
   async function saveConsensus(stato) {
-    var isBozza   = stato === 'bozza';
-    var btnId     = isBozza ? 'salva-bozza-btn' : 'valida-btn';
-    var txtId     = isBozza ? 'bozza-text'      : 'valida-text';
-    var spinId    = isBozza ? 'bozza-spinner'   : 'valida-spinner';
+    var isBozza      = stato === 'bozza';
+    var btnId        = isBozza ? 'salva-bozza-btn' : 'valida-btn';
+    var txtId        = isBozza ? 'bozza-text'      : 'valida-text';
+    var spinId       = isBozza ? 'bozza-spinner'   : 'valida-spinner';
     var trascrizione = document.getElementById('trascrizione').value.trim();
 
-    if (!trascrizione) { alert('La trascrizione è vuota.'); return; }
+    if (!trascrizione) { alert('Il documento è vuoto.'); return; }
 
     document.getElementById(btnId).disabled = true;
     document.getElementById(spinId).classList.remove('hidden');
