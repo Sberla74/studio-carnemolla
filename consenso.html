@@ -208,10 +208,12 @@
   <h1 style="font-size:20px; text-align:center; margin-bottom:6px; color:#111;">CONSENSO INFORMATO</h1>
   <div id="pdf-paziente-info" style="text-align:center; font-size:13px; color:#555; margin-bottom:24px;"></div>
   <div id="pdf-body" style="font-size:13px; line-height:1.7;"></div>
-  <div style="margin-top:32px; padding-top:16px; border-top:1px solid #ddd;">
-    <div style="font-size:12px; color:#555; margin-bottom:12px;">Firma del paziente:</div>
-    <img id="pdf-firma" style="max-height:80px; border:1px solid #ddd; border-radius:4px; background:white;" alt="Firma paziente">
-    <div id="pdf-data-firma" style="font-size:11px; color:#888; margin-top:8px;"></div>
+  <div style="margin-top:40px; padding-top:16px; border-top:1px solid #ddd; display:flex; justify-content:flex-end;">
+    <div style="text-align:center; min-width:220px;">
+      <img id="pdf-firma" style="max-height:80px; max-width:220px; border:1px solid #ddd; border-radius:4px; background:white; display:block; margin:0 auto 8px;" alt="Firma paziente">
+      <div style="border-top:1px solid #555; padding-top:6px; font-size:12px; font-weight:600; color:#111;" id="pdf-nome-paziente"></div>
+      <div id="pdf-data-firma" style="font-size:11px; color:#888; margin-top:4px;"></div>
+    </div>
   </div>
   <div style="margin-top:24px; font-size:10px; color:#aaa; text-align:center; border-top:1px solid #eee; padding-top:12px;">
     Documento generato il <span id="pdf-data-gen"></span> · Studio Ortodontico Dott.ssa Elena Carnemolla
@@ -611,9 +613,9 @@
       // Popola template
       document.getElementById('pdf-paziente-info').textContent =
         'Paziente: ' + pazienteNome + '  ·  Data: ' + oggi;
-      document.getElementById('pdf-firma').src       = firmaImg;
-      document.getElementById('pdf-data-firma').textContent = 'Firmato il ' + oggi;
-      document.getElementById('pdf-data-gen').textContent   = oggi;
+      document.getElementById('pdf-nome-paziente').textContent = pazienteNome;
+      document.getElementById('pdf-data-firma').textContent    = 'Firmato il ' + oggi;
+      document.getElementById('pdf-data-gen').textContent      = oggi;
 
       // Converti testo markdown → HTML semplice
       var html = trascrizione
@@ -626,13 +628,22 @@
       var tpl = document.getElementById('pdf-template');
       tpl.style.display = 'block';
 
+      // Carica la firma e aspetta che sia pronta
+      await new Promise(function(resolve) {
+        var img = document.getElementById('pdf-firma');
+        img.onload  = resolve;
+        img.onerror = resolve;
+        img.src = firmaImg;
+        if (img.complete) resolve();
+      });
+
       var nomeFile = 'ConsensoInformato_' + pazienteNome.replace(/\s+/g,'_') + '_' + oggi.replace(/\s/g,'') + '.pdf';
 
       await html2pdf().set({
         margin:      [15, 15, 15, 15],
         filename:    nomeFile,
         image:       { type: 'jpeg', quality: 0.95 },
-        html2canvas: { scale: 2, useCORS: true },
+        html2canvas: { scale: 2, useCORS: true, allowTaint: true, logging: false },
         jsPDF:       { unit: 'mm', format: 'a4', orientation: 'portrait' }
       }).from(tpl).save();
 
