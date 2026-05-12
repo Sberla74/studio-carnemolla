@@ -24,7 +24,11 @@
     .step.active { background:var(--primary-bg); border-color:var(--primary); color:var(--primary); font-weight:600; }
     .step.done { background:var(--success-bg); border-color:#BBF7D0; color:var(--success); }
     .steps { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:24px; }
-    .interim-text { color:var(--text-muted); font-style:italic; }
+    /* Firma */
+    .firma-box { background:white; border:2px dashed var(--border); border-radius:var(--radius); overflow:hidden; touch-action:none; cursor:crosshair; }
+    .firma-box canvas { display:block; width:100%; }
+    .firma-overlay { display:flex; align-items:center; justify-content:center; gap:8px; color:var(--text-muted); font-size:14px; pointer-events:none; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); }
+    .firma-wrap { position:relative; margin-bottom:12px; }
   </style>
 </head>
 <body>
@@ -51,6 +55,7 @@
       <div class="step active" id="step-1">🎙 1. Dettatura</div>
       <div class="step" id="step-2">🤖 2. Strutturazione AI</div>
       <div class="step" id="step-3">✅ 3. Validazione</div>
+      <div class="step" id="step-4">✍ 4. Firma</div>
     </div>
 
     <div class="alert alert-info mb-6">
@@ -78,7 +83,6 @@
         <div class="recording-status" id="recording-status">Pronto alla dettatura</div>
       </div>
 
-      <!-- Testo dettato in tempo reale -->
       <div class="card mb-6">
         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
           <span class="card-title">Appunti dettati</span>
@@ -128,11 +132,63 @@
           <span>⚠</span><span>Errore nel salvataggio. Riprova.</span>
         </div>
       </div>
+
+      <!-- Pulsante firma (visibile solo dopo validazione) -->
+      <div id="firma-prompt" class="hidden mt-6">
+        <div class="card" style="border-color:var(--primary); background:var(--primary-bg);">
+          <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+            <div style="flex:1; min-width:200px;">
+              <div style="font-weight:600; color:var(--primary); margin-bottom:4px;">Documento validato ✓</div>
+              <div style="font-size:13px; color:var(--text-muted);">Ora fai firmare il paziente per completare il consenso informato.</div>
+            </div>
+            <button id="apri-firma-btn" class="btn btn-primary">✍ Fai firmare il paziente</button>
+          </div>
+          <div id="firma-acquisita-info" class="hidden mt-4">
+            <div class="alert alert-success">
+              <span>✓</span><span>Firma acquisita. Consenso completo.</span>
+            </div>
+            <img id="firma-preview-small" style="max-height:60px; margin-top:8px; border:1px solid var(--border); border-radius:var(--radius); background:white;" alt="Firma paziente">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FASE 4: Firma paziente -->
+    <div id="fase-firma" class="hidden">
+      <div class="card">
+        <div class="card-title mb-2">✍ Firma del Paziente</div>
+        <p class="text-muted mb-4" style="font-size:13px;">
+          Passa il telefono al paziente. Il/La paziente <strong id="firma-paziente-nome">–</strong> dichiara
+          di aver ricevuto dalla Dott.ssa Elena Carnemolla informazioni chiare e complete riguardo alla propria
+          condizione clinica, al piano di cura proposto, ai benefici attesi, ai rischi e alle alternative terapeutiche,
+          e presta il proprio consenso al trattamento.
+        </p>
+        <div class="firma-wrap">
+          <div class="firma-box">
+            <canvas id="firma-pad" height="180"></canvas>
+          </div>
+          <div class="firma-overlay" id="firma-placeholder">✍ Firma qui con il dito</div>
+        </div>
+        <div style="display:flex; gap:8px; margin-bottom:16px;">
+          <button id="clear-firma-btn" class="btn btn-secondary btn-sm">🗑 Cancella</button>
+        </div>
+        <div id="firma-error" class="alert alert-error hidden mb-4">
+          <span>⚠</span><span>La firma è obbligatoria prima di procedere.</span>
+        </div>
+        <div class="action-bar">
+          <button id="annulla-firma-btn" class="btn btn-secondary">Annulla</button>
+          <button id="conferma-firma-btn" class="btn btn-success">
+            <span id="conferma-firma-text">✓ Conferma Firma</span>
+            <span id="conferma-firma-spinner" class="spinner hidden"></span>
+          </button>
+        </div>
+      </div>
     </div>
 
   </div>
 </main>
 
+<script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script>
 <script type="module">
   import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
   import { getAuth, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
@@ -157,6 +213,32 @@
 
   var currentConsensoId = consensoId;
   var timerInterval, seconds = 0, isRecording = false;
+
+  // ── Signature Pad ──────────────────────────────
+  var firmaCanvas    = document.getElementById('firma-pad');
+  var firmaContainer = firmaCanvas.parentElement;
+  var sigPad = new SignaturePad(firmaCanvas, {
+    backgroundColor: 'rgb(255,255,255)', penColor: '#1E293B', minWidth: 1.5, maxWidth: 3
+  });
+
+  function resizeFirmaCanvas() {
+    var r = Math.max(window.devicePixelRatio || 1, 1);
+    firmaCanvas.width  = firmaContainer.offsetWidth * r;
+    firmaCanvas.height = 180 * r;
+    firmaCanvas.getContext('2d').scale(r, r);
+    sigPad.clear();
+  }
+  window.addEventListener('resize', resizeFirmaCanvas);
+
+  sigPad.addEventListener('beginStroke', function() {
+    document.getElementById('firma-placeholder').style.display = 'none';
+    document.getElementById('firma-error').classList.add('hidden');
+  });
+
+  document.getElementById('clear-firma-btn').addEventListener('click', function() {
+    sigPad.clear();
+    document.getElementById('firma-placeholder').style.display = 'flex';
+  });
 
   // ── Web Speech API ─────────────────────────────
   var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -193,8 +275,6 @@
 
     recognition.onend = function() {
       if (isRecording) {
-        // Riavvia automaticamente se l'utente non ha premuto stop
-        // (il browser interrompe dopo silenzio prolungato)
         try { recognition.start(); } catch(e) { stopRecording(); }
       }
     };
@@ -211,8 +291,9 @@
   });
 
   async function init(user) {
-    document.getElementById('header-nome').textContent          = pazienteNome || 'Consenso Informato';
+    document.getElementById('header-nome').textContent           = pazienteNome || 'Consenso Informato';
     document.getElementById('paziente-nome-display').textContent = pazienteNome;
+    document.getElementById('firma-paziente-nome').textContent   = pazienteNome;
     document.getElementById('back-btn').href = 'paziente.html?id=' + pazienteId;
 
     if (!SpeechRecognition) {
@@ -224,7 +305,10 @@
       if (snap.exists()) {
         var c = snap.val();
         document.getElementById('trascrizione').value = c.trascrizione || '';
-        showFaseTrascrizione(c.stato);
+        showFaseTrascrizione(c.stato, !!c.firmaConsenso);
+        if (c.firmaConsenso) {
+          showFirmaAcquisita(c.firmaConsenso);
+        }
       }
     }
 
@@ -234,7 +318,7 @@
 
   // ── Steps UI ───────────────────────────────────
   function setStep(n) {
-    for (var i = 1; i <= 3; i++) {
+    for (var i = 1; i <= 4; i++) {
       var el = document.getElementById('step-' + i);
       el.classList.remove('active','done');
       if (i < n) el.classList.add('done');
@@ -242,14 +326,29 @@
     }
   }
 
-  function showFaseTrascrizione(stato) {
+  function showFaseTrascrizione(stato, hasFirma) {
     document.getElementById('fase-registrazione').classList.add('hidden');
+    document.getElementById('fase-firma').classList.add('hidden');
     document.getElementById('fase-trascrizione').classList.remove('hidden');
-    setStep(stato === 'validato' ? 3 : 2);
+
     var badge = stato === 'validato'
       ? '<span class="badge badge-validato">Validato</span>'
       : '<span class="badge badge-bozza">Bozza</span>';
     document.getElementById('consenso-stato-badge').innerHTML = badge;
+
+    if (stato === 'validato') {
+      document.getElementById('firma-prompt').classList.remove('hidden');
+      setStep(hasFirma ? 4 : 3);
+    } else {
+      setStep(2);
+    }
+  }
+
+  function showFirmaAcquisita(firmaBase64) {
+    document.getElementById('firma-acquisita-info').classList.remove('hidden');
+    document.getElementById('firma-preview-small').src = firmaBase64;
+    document.getElementById('apri-firma-btn').textContent = '✍ Aggiorna firma';
+    setStep(4);
   }
 
   // ── Timer ──────────────────────────────────────
@@ -300,7 +399,6 @@
           alert('Impossibile accedere al microfono. Controlla i permessi del browser.');
         }
       } else {
-        // Nessuna Web Speech API: consenti comunque di digitare
         isRecording = true;
         seconds = 0;
         timerInterval = setInterval(updateTimer, 1000);
@@ -375,7 +473,7 @@
       }
 
       document.getElementById('trascrizione').value = strutturato;
-      showFaseTrascrizione('bozza');
+      showFaseTrascrizione('bozza', false);
 
     } catch(err) {
       console.error(err);
@@ -431,11 +529,10 @@
 
       var msgEl = document.getElementById('save-success-text');
       msgEl.textContent = stato === 'validato'
-        ? '✓ Consenso validato e archiviato.'
+        ? '✓ Consenso validato. Ora fai firmare il paziente.'
         : '✓ Bozza salvata. Puoi completarla in seguito.';
       document.getElementById('save-success').classList.remove('hidden');
-      showFaseTrascrizione(stato);
-      setStep(stato === 'validato' ? 3 : 2);
+      showFaseTrascrizione(stato, false);
 
     } catch(err) {
       console.error(err);
@@ -446,6 +543,63 @@
       document.getElementById(txtId).textContent = isBozza ? '💾 Salva Bozza' : '✅ Valida e Archivia';
     }
   }
+
+  // ── Fase Firma ─────────────────────────────────
+  document.getElementById('apri-firma-btn').addEventListener('click', function() {
+    document.getElementById('fase-trascrizione').classList.add('hidden');
+    document.getElementById('fase-firma').classList.remove('hidden');
+    setStep(4);
+    sigPad.clear();
+    document.getElementById('firma-placeholder').style.display = 'flex';
+    // Ridimensiona il canvas dopo che il div è visibile
+    setTimeout(resizeFirmaCanvas, 50);
+  });
+
+  document.getElementById('annulla-firma-btn').addEventListener('click', function() {
+    document.getElementById('fase-firma').classList.add('hidden');
+    document.getElementById('fase-trascrizione').classList.remove('hidden');
+    setStep(3);
+  });
+
+  document.getElementById('conferma-firma-btn').addEventListener('click', async function() {
+    if (sigPad.isEmpty()) {
+      document.getElementById('firma-error').classList.remove('hidden');
+      return;
+    }
+
+    var btn  = document.getElementById('conferma-firma-btn');
+    var txt  = document.getElementById('conferma-firma-text');
+    var spin = document.getElementById('conferma-firma-spinner');
+
+    btn.disabled = true;
+    txt.textContent = 'Salvataggio…';
+    spin.classList.remove('hidden');
+
+    try {
+      var firmaBase64 = sigPad.toDataURL('image/png');
+
+      if (currentConsensoId) {
+        await update(ref(db, 'consensi/' + currentConsensoId), {
+          firmaConsenso:    firmaBase64,
+          dataFirma:        serverTimestamp()
+        });
+      }
+
+      // Torna alla scheda e mostra firma acquisita
+      document.getElementById('fase-firma').classList.add('hidden');
+      document.getElementById('fase-trascrizione').classList.remove('hidden');
+      showFaseTrascrizione('validato', true);
+      showFirmaAcquisita(firmaBase64);
+
+    } catch(err) {
+      console.error(err);
+      alert('Errore nel salvataggio della firma. Riprova.');
+    } finally {
+      btn.disabled = false;
+      txt.textContent = '✓ Conferma Firma';
+      spin.classList.add('hidden');
+    }
+  });
 </script>
 <script>if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');</script>
 </body>
