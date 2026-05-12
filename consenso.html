@@ -605,36 +605,55 @@
     txt.textContent = 'Generazione…';
     spin.classList.remove('hidden');
 
+    var tempDiv = null;
     try {
       var trascrizione = document.getElementById('trascrizione').value;
       var firmaImg     = document.getElementById('firma-preview-small').src;
       var oggi         = new Date().toLocaleDateString('it-IT', { day:'2-digit', month:'long', year:'numeric' });
 
-      // Popola template
-      document.getElementById('pdf-paziente-info').textContent =
-        'Paziente: ' + pazienteNome + '  ·  Data: ' + oggi;
-      document.getElementById('pdf-nome-paziente').textContent = pazienteNome;
-      document.getElementById('pdf-data-firma').textContent    = 'Firmato il ' + oggi;
-      document.getElementById('pdf-data-gen').textContent      = oggi;
-
-      // Converti testo markdown → HTML semplice
-      var html = trascrizione
-        .replace(/## (.+)/g, '<h3 style="font-size:14px;font-weight:700;color:#0F766E;margin:20px 0 6px;border-bottom:1px solid #e2e8f0;padding-bottom:4px;">$1</h3>')
+      // Converti markdown → HTML pulito
+      var bodyHtml = trascrizione
+        .replace(/^#{1,2} (.+)$/mg, '<h3 style="font-size:14px;font-weight:700;color:#0F766E;margin:20px 0 6px;border-bottom:1px solid #e2e8f0;padding-bottom:4px;">$1</h3>')
+        .replace(/^---+$/mg, '')
         .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\n{2,}/g, '</p><p style="margin:0 0 8px;">')
         .replace(/\n/g, '<br>');
-      document.getElementById('pdf-body').innerHTML = html;
 
-      // Rendi visibile per html2pdf
-      var tpl = document.getElementById('pdf-template');
-      tpl.style.display = 'block';
+      // Crea div temporaneo fuori schermo (evita spazio bianco nel PDF)
+      tempDiv = document.createElement('div');
+      tempDiv.style.cssText = 'position:absolute;left:-9999px;top:0;width:794px;background:white;font-family:Arial,sans-serif;color:#111;padding:0;';
+      tempDiv.innerHTML =
+        '<div style="border-bottom:3px solid #0F766E;padding-bottom:16px;margin-bottom:24px;">' +
+          '<div style="display:flex;align-items:center;gap:16px;">' +
+            '<div style="width:52px;height:52px;background:#0F766E;border-radius:10px;display:flex;align-items:center;justify-content:center;color:white;font-size:18px;font-weight:700;flex-shrink:0;">EC</div>' +
+            '<div>' +
+              '<div style="font-size:18px;font-weight:700;color:#0F766E;">Dott.ssa Elena Carnemolla</div>' +
+              '<div style="font-size:13px;color:#555;">Specialista in Ortodonzia · Studio Ortodontico</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        '<h1 style="font-size:20px;text-align:center;margin-bottom:6px;color:#111;">CONSENSO INFORMATO</h1>' +
+        '<div style="text-align:center;font-size:13px;color:#555;margin-bottom:24px;">Paziente: ' + pazienteNome + '  ·  Data: ' + oggi + '</div>' +
+        '<div style="font-size:13px;line-height:1.7;"><p style="margin:0 0 8px;">' + bodyHtml + '</p></div>' +
+        '<div style="margin-top:40px;padding-top:16px;border-top:1px solid #ddd;display:flex;justify-content:flex-end;">' +
+          '<div style="text-align:center;min-width:220px;">' +
+            '<img id="tmp-firma-img" src="' + firmaImg + '" style="max-height:80px;max-width:220px;border:1px solid #ddd;border-radius:4px;background:white;display:block;margin:0 auto 8px;">' +
+            '<div style="border-top:1px solid #555;padding-top:6px;font-size:12px;font-weight:600;color:#111;">' + pazienteNome + '</div>' +
+            '<div style="font-size:11px;color:#888;margin-top:4px;">Firmato il ' + oggi + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div style="margin-top:24px;font-size:10px;color:#aaa;text-align:center;border-top:1px solid #eee;padding-top:12px;">' +
+          'Documento generato il ' + oggi + ' · Studio Ortodontico Dott.ssa Elena Carnemolla' +
+        '</div>';
 
-      // Carica la firma e aspetta che sia pronta
+      document.body.appendChild(tempDiv);
+
+      // Aspetta che la firma sia renderizzata
       await new Promise(function(resolve) {
-        var img = document.getElementById('pdf-firma');
+        var img = tempDiv.querySelector('#tmp-firma-img');
+        if (img.complete && img.naturalHeight > 0) { resolve(); return; }
         img.onload  = resolve;
         img.onerror = resolve;
-        img.src = firmaImg;
-        if (img.complete) resolve();
       });
 
       var nomeFile = 'ConsensoInformato_' + pazienteNome.replace(/\s+/g,'_') + '_' + oggi.replace(/\s/g,'') + '.pdf';
@@ -645,15 +664,13 @@
         image:       { type: 'jpeg', quality: 0.95 },
         html2canvas: { scale: 2, useCORS: true, allowTaint: true, logging: false },
         jsPDF:       { unit: 'mm', format: 'a4', orientation: 'portrait' }
-      }).from(tpl).save();
-
-      tpl.style.display = 'none';
+      }).from(tempDiv).save();
 
     } catch(err) {
       console.error(err);
       alert('Errore nella generazione del PDF. Riprova.');
-      document.getElementById('pdf-template').style.display = 'none';
     } finally {
+      if (tempDiv) document.body.removeChild(tempDiv);
       btn.disabled = false;
       txt.textContent = '📄 Genera PDF';
       spin.classList.add('hidden');
