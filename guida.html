@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Come funziona – Studio Carnemolla</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #F8FAFC;
+      color: #1E293B;
+      padding: 24px 16px 48px;
+      max-width: 680px;
+      margin: 0 auto;
+    }
+
+    /* ── Header ── */
+    .header {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+    .header-logo {
+      width: 52px; height: 52px;
+      background: #0F766E;
+      border-radius: 14px;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 18px; font-weight: 800; color: white;
+      margin-bottom: 12px;
+    }
+    .header h1 {
+      font-size: 22px; font-weight: 800; color: #0F766E;
+      margin-bottom: 4px;
+    }
+    .header p {
+      font-size: 14px; color: #64748B;
+    }
+
+    /* ── Sezione ── */
+    .sezione {
+      margin-bottom: 32px;
+    }
+    .sezione-titolo {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 13px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .08em; margin-bottom: 16px;
+      padding: 8px 14px; border-radius: 20px;
+    }
+    .sezione-titolo.paziente { background: #EFF6FF; color: #1D4ED8; }
+    .sezione-titolo.dottoressa { background: #F0FDF4; color: #166534; }
+    .sezione-titolo.automatico { background: #FFF7ED; color: #9A3412; }
+
+    /* ── Step ── */
+    .step {
+      display: flex; gap: 14px; margin-bottom: 12px;
+      background: white;
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.07);
+      position: relative;
+    }
+    .step-num {
+      width: 38px; height: 38px; min-width: 38px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 17px;
+    }
+    .step-num.paziente  { background: #DBEAFE; }
+    .step-num.dottoressa{ background: #DCFCE7; }
+    .step-num.automatico{ background: #FFEDD5; }
+
+    .step-body { flex: 1; }
+    .step-titolo {
+      font-size: 15px; font-weight: 700; color: #0F172A;
+      margin-bottom: 3px;
+    }
+    .step-desc {
+      font-size: 13px; color: #64748B; line-height: 1.5;
+    }
+    .step-desc strong { color: #0F172A; }
+
+    /* ── Freccia ── */
+    .freccia {
+      text-align: center; font-size: 20px; color: #CBD5E1;
+      margin: 4px 0 4px 26px;
+    }
+
+    /* ── Connettore tra sezioni ── */
+    .connettore {
+      display: flex; align-items: center; gap: 12px;
+      margin: 20px 0;
+    }
+    .connettore-linea { flex: 1; height: 1px; background: #E2E8F0; }
+    .connettore-label {
+      font-size: 12px; color: #94A3B8; white-space: nowrap;
+      padding: 4px 12px; background: #F1F5F9; border-radius: 20px;
+    }
+
+    /* ── Box risultato finale ── */
+    .risultato {
+      background: linear-gradient(135deg, #0F766E 0%, #0D9488 100%);
+      border-radius: 20px;
+      padding: 22px 20px;
+      color: white;
+      text-align: center;
+      margin-top: 28px;
+    }
+    .risultato .icon { font-size: 36px; margin-bottom: 10px; }
+    .risultato h3 { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
+    .risultato p  { font-size: 13px; opacity: .85; line-height: 1.5; }
+
+    /* ── Legenda ── */
+    .legenda {
+      display: flex; gap: 16px; flex-wrap: wrap;
+      margin-bottom: 28px; justify-content: center;
+    }
+    .leg-item {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 12px; color: #64748B;
+    }
+    .leg-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+    }
+
+    /* ── Print ── */
+    @media print {
+      body { background: white; padding: 16px; }
+      .step { box-shadow: none; border: 1px solid #E2E8F0; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="header-logo">EC</div>
+    <h1>Come funziona</h1>
+    <p>Guida al sistema di consenso informato digitale</p>
+  </div>
+
+  <div class="legenda">
+    <div class="leg-item"><div class="leg-dot" style="background:#1D4ED8"></div> Paziente</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#166534"></div> Dottoressa</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#9A3412"></div> Automatico</div>
+  </div>
+
+
+  <!-- ═══ PARTE 1: PAZIENTE ═══ -->
+  <div class="sezione">
+    <div class="sezione-titolo paziente">👤 &nbsp;Parte 1 — Il paziente in sala d'attesa</div>
+
+    <div class="step">
+      <div class="step-num paziente">📲</div>
+      <div class="step-body">
+        <div class="step-titolo">Scansiona il QR Code</div>
+        <div class="step-desc">Il paziente inquadra il codice QR affisso in sala d'attesa con la fotocamera del telefono. Si apre automaticamente il modulo di registrazione.</div>
+      </div>
+    </div>
+    <div class="freccia">↓</div>
+
+    <div class="step">
+      <div class="step-num paziente">📝</div>
+      <div class="step-body">
+        <div class="step-titolo">Compila il modulo</div>
+        <div class="step-desc">Inserisce: <strong>nome, cognome, data di nascita, indirizzo, telefono, email.</strong><br>Accetta l'informativa privacy.</div>
+      </div>
+    </div>
+    <div class="freccia">↓</div>
+
+    <div class="step">
+      <div class="step-num paziente">✍️</div>
+      <div class="step-body">
+        <div class="step-titolo">Firma con il dito</div>
+        <div class="step-desc">Appone la firma digitale direttamente sullo schermo del telefono. I dati vengono salvati automaticamente.</div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- connettore -->
+  <div class="connettore">
+    <div class="connettore-linea"></div>
+    <div class="connettore-label">⚡ I dati arrivano subito alla dashboard</div>
+    <div class="connettore-linea"></div>
+  </div>
+
+
+  <!-- ═══ PARTE 2: DOTTORESSA ═══ -->
+  <div class="sezione">
+    <div class="sezione-titolo dottoressa">👩‍⚕️ &nbsp;Parte 2 — La dottoressa</div>
+
+    <div class="step">
+      <div class="step-num dottoressa">🔐</div>
+      <div class="step-body">
+        <div class="step-titolo">Accede all'app</div>
+        <div class="step-desc">Apre il browser sul telefono, va su <strong>sberla74.github.io/studio-carnemolla/login.html</strong> e accede con email e password.</div>
+      </div>
+    </div>
+    <div class="freccia">↓</div>
+
+    <div class="step">
+      <div class="step-num dottoressa">📋</div>
+      <div class="step-body">
+        <div class="step-titolo">Vede la lista pazienti</div>
+        <div class="step-desc">Nella dashboard appaiono tutti i pazienti registrati in giornata. Un badge colorato indica lo stato del consenso informato.</div>
+      </div>
+    </div>
+    <div class="freccia">↓</div>
+
+    <div class="step">
+      <div class="step-num dottoressa">👤</div>
+      <div class="step-body">
+        <div class="step-titolo">Apre la scheda paziente</div>
+        <div class="step-desc">Tocca il nome del paziente per vedere i suoi dati anagrafici, la firma e lo storico dei consensi precedenti.</div>
+      </div>
+    </div>
+    <div class="freccia">↓</div>
+
+    <div class="step">
+      <div class="step-num dottoressa">🎙</div>
+      <div class="step-body">
+        <div class="step-titolo">Dètta gli appunti del colloquio</div>
+        <div class="step-desc">Preme il <strong>tasto rosso</strong> e parla liberamente: diagnosi, piano di cura, rischi, alternative. Il testo compare sullo schermo in tempo reale. Può anche correggere a mano.</div>
+      </div>
+    </div>
+    <div class="freccia">↓</div>
+
+    <div class="step">
+      <div class="step-num automatico">🤖</div>
+      <div class="step-body">
+        <div class="step-titolo">L'intelligenza artificiale struttura il documento</div>
+        <div class="step-desc">Con un tocco su <strong>"Struttura con AI"</strong>, il sistema organizza automaticamente gli appunti in un documento formale con 7 sezioni: diagnosi, piano di cura, benefici, rischi, alternative, informazioni pratiche, dichiarazione del paziente.</div>
+      </div>
+    </div>
+    <div class="freccia">↓</div>
+
+    <div class="step">
+      <div class="step-num dottoressa">✅</div>
+      <div class="step-body">
+        <div class="step-titolo">Legge, corregge e valida</div>
+        <div class="step-desc">La dottoressa legge il documento, apporta eventuali modifiche, poi tocca <strong>"Valida e Archivia"</strong>. Il documento viene salvato.</div>
+      </div>
+    </div>
+    <div class="freccia">↓</div>
+
+    <div class="step">
+      <div class="step-num dottoressa">✍️</div>
+      <div class="step-body">
+        <div class="step-titolo">Il paziente firma il consenso</div>
+        <div class="step-desc">La dottoressa passa il telefono al paziente. Il paziente legge la dichiarazione e firma con il dito sullo schermo.</div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- connettore -->
+  <div class="connettore">
+    <div class="connettore-linea"></div>
+    <div class="connettore-label">⚡ Tutto automatico da qui</div>
+    <div class="connettore-linea"></div>
+  </div>
+
+
+  <!-- ═══ PARTE 3: AUTOMATICO ═══ -->
+  <div class="sezione">
+    <div class="sezione-titolo automatico">⚡ &nbsp;Parte 3 — Succede in automatico</div>
+
+    <div class="step">
+      <div class="step-num automatico">📄</div>
+      <div class="step-body">
+        <div class="step-titolo">PDF generato</div>
+        <div class="step-desc">Il sistema crea il documento PDF completo con intestazione dello studio, tutte le sezioni del consenso e la firma del paziente in calce.</div>
+      </div>
+    </div>
+    <div class="freccia">↓</div>
+
+    <div class="step">
+      <div class="step-num automatico">☁️</div>
+      <div class="step-body">
+        <div class="step-titolo">Salvato su Google Drive</div>
+        <div class="step-desc">Il PDF viene caricato automaticamente su Google Drive nella cartella <strong>"Studio Carnemolla – Consensi"</strong>, organizzato per anno.</div>
+      </div>
+    </div>
+    <div class="freccia">↓</div>
+
+    <div class="step">
+      <div class="step-num automatico">🗄</div>
+      <div class="step-body">
+        <div class="step-titolo">Archiviato nel sistema</div>
+        <div class="step-desc">Il consenso appare nello storico del paziente con stato <strong>"Validato"</strong>, sempre consultabile dalla scheda paziente.</div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ═══ RISULTATO ═══ -->
+  <div class="risultato">
+    <div class="icon">🎉</div>
+    <h3>Consenso informato completato</h3>
+    <p>Il documento è firmato, archiviato nel sistema e salvato su Google Drive.<br>Zero carta, zero perdite, sempre accessibile.</p>
+  </div>
+
+</body>
+</html>
