@@ -251,30 +251,27 @@
   // ── Web Speech API ─────────────────────────────
   var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   var recognition = null;
-  var finalTranscript = '';
-  var preSessionText  = ''; // testo accumulato prima della sessione corrente
+  var finalTranscript = ''; // testo accumulato confermato
+  var sessionText     = ''; // testo della sessione in corso (si azzera a ogni riavvio)
 
   if (SpeechRecognition) {
     recognition = new SpeechRecognition();
     recognition.lang = 'it-IT';
-    recognition.continuous = true;
+    recognition.continuous    = false; // gestiamo noi la continuità: ogni sessione è indipendente
     recognition.interimResults = true;
 
     recognition.onresult = function(event) {
-      // Ricostruisce da TUTTI i risultati (fix Android Chrome che invia
-      // risultati cumulativi invece che incrementali come Chrome desktop)
-      var sessionFinal = '';
+      sessionText = '';
       var interim = '';
       for (var i = 0; i < event.results.length; i++) {
         if (event.results[i].isFinal) {
-          sessionFinal += event.results[i][0].transcript + ' ';
+          sessionText += event.results[i][0].transcript + ' ';
         } else {
           interim += event.results[i][0].transcript;
         }
       }
-      finalTranscript = preSessionText + sessionFinal;
-      var ta = document.getElementById('live-transcript');
-      ta.value = finalTranscript + (interim ? '…' + interim : '');
+      document.getElementById('live-transcript').value =
+        finalTranscript + sessionText + (interim ? '…' + interim : '');
       updateStructureBtn();
     };
 
@@ -286,15 +283,18 @@
     };
 
     recognition.onend = function() {
-      if (isRecording) {
-        // Pausa automatica per silenzio: non riavviare per evitare ripetizioni
-        isRecording = false;
-        clearInterval(timerInterval);
-        recordBtn.className = 'recording-btn stopped';
-        recordBtn.textContent = '▶';
-        document.getElementById('recording-status').textContent = '⏸ Pausa – tocca per continuare';
-        document.getElementById('recording-status').className = 'recording-status';
+      // Consolida il testo della sessione appena conclusa
+      if (sessionText) {
+        finalTranscript += sessionText;
+        sessionText = '';
+        document.getElementById('live-transcript').value = finalTranscript;
         updateStructureBtn();
+      }
+      if (isRecording) {
+        // Riavvio automatico dopo 150ms — testo già salvato, nessuna sovrapposizione
+        setTimeout(function() {
+          if (isRecording) { try { recognition.start(); } catch(e) {} }
+        }, 150);
       }
     };
   }
@@ -388,8 +388,10 @@
   var recordBtn = document.getElementById('record-btn');
 
   function stopRecording() {
+    isRecording = false; // prima di stop() così onend non riavvia
     if (recognition) { try { recognition.stop(); } catch(e) {} }
-    isRecording = false;
+    if (sessionText) { finalTranscript += sessionText; sessionText = ''; }
+    document.getElementById('live-transcript').value = finalTranscript;
     clearInterval(timerInterval);
     recordBtn.className = 'recording-btn stopped';
     recordBtn.textContent = '✓';
@@ -400,11 +402,10 @@
 
   recordBtn.addEventListener('click', function() {
     if (!isRecording) {
-      // Ripresa dopo pausa: mantieni il testo già dettato
       var isResume = finalTranscript.trim().length > 0;
       if (!isResume) {
         finalTranscript = '';
-        preSessionText  = '';
+        sessionText     = '';
         document.getElementById('live-transcript').value = '';
         updateStructureBtn();
         seconds = 0;
@@ -413,7 +414,7 @@
 
       if (recognition) {
         try {
-          preSessionText = finalTranscript; // preserva testo pre-sessione
+          sessionText = '';
           recognition.start();
           isRecording = true;
           timerInterval = setInterval(updateTimer, 1000);
@@ -443,7 +444,7 @@
 
   document.getElementById('clear-transcript-btn').addEventListener('click', function() {
     finalTranscript = '';
-    preSessionText  = '';
+    sessionText     = '';
     document.getElementById('live-transcript').value = '';
     document.getElementById('timer').textContent = '00:00';
     document.getElementById('recording-status').textContent = 'Pronto alla dettatura';
