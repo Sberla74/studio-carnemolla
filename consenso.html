@@ -282,7 +282,14 @@
 
     recognition.onend = function() {
       if (isRecording) {
-        try { recognition.start(); } catch(e) { stopRecording(); }
+        // Pausa automatica per silenzio: non riavviare per evitare ripetizioni
+        isRecording = false;
+        clearInterval(timerInterval);
+        recordBtn.className = 'recording-btn stopped';
+        recordBtn.textContent = '▶';
+        document.getElementById('recording-status').textContent = '⏸ Pausa – tocca per continuare';
+        document.getElementById('recording-status').className = 'recording-status';
+        updateStructureBtn();
       }
     };
   }
@@ -388,27 +395,32 @@
 
   recordBtn.addEventListener('click', function() {
     if (!isRecording) {
-      finalTranscript = '';
-      document.getElementById('live-transcript').value = '';
-      updateStructureBtn();
+      // Ripresa dopo pausa: mantieni il testo già dettato
+      var isResume = finalTranscript.trim().length > 0;
+      if (!isResume) {
+        finalTranscript = '';
+        document.getElementById('live-transcript').value = '';
+        updateStructureBtn();
+        seconds = 0;
+      }
       setStep(1);
 
       if (recognition) {
         try {
           recognition.start();
           isRecording = true;
-          seconds = 0;
           timerInterval = setInterval(updateTimer, 1000);
           recordBtn.className = 'recording-btn recording';
           recordBtn.textContent = '⏹';
-          document.getElementById('recording-status').textContent = '● Dettatura in corso… parla liberamente';
+          document.getElementById('recording-status').textContent = isResume
+            ? '● Ripresa dettatura… continua a parlare'
+            : '● Dettatura in corso… parla liberamente';
           document.getElementById('recording-status').className = 'recording-status active';
         } catch(err) {
           alert('Impossibile accedere al microfono. Controlla i permessi del browser.');
         }
       } else {
         isRecording = true;
-        seconds = 0;
         timerInterval = setInterval(updateTimer, 1000);
         recordBtn.className = 'recording-btn recording';
         recordBtn.textContent = '⏹';
