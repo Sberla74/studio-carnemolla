@@ -629,12 +629,13 @@
       y += 10;
 
       // ── Corpo ──
+      // Rimuovi righe con placeholder firma/data prima di elaborare
+      trascrizione = trascrizione.replace(/^[ \t]*(Firma|Data)[^\n]*\n?/gim, '');
+      trascrizione = trascrizione.replace(/[^\n]*(\\_|_{3,})[^\n]*\n?/g, '');
+
       var lines = trascrizione.split('\n');
       for (var i = 0; i < lines.length; i++) {
         var line = lines[i];
-        // Rimuovi righe firma/data con trattini dal testo (gestite digitalmente)
-        if (/^(Firma|Data)\b/i.test(line.trim())) continue;
-        if (/\\_/.test(line)) continue;
         if (/^---+$/.test(line.trim())) { y += 2; continue; }
 
         var hm = line.match(/^#{1,2}\s+(.+)$/);
