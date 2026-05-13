@@ -583,7 +583,7 @@
   });
 
   // ── Genera PDF (jsPDF puro, niente html2canvas) ──
-  document.getElementById('genera-pdf-btn').addEventListener('click', function() {
+  document.getElementById('genera-pdf-btn').addEventListener('click', async function() {
     var btn  = document.getElementById('genera-pdf-btn');
     var txt  = document.getElementById('pdf-text');
     var spin = document.getElementById('pdf-spinner');
