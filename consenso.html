@@ -739,8 +739,9 @@
         }
       } catch(driveErr) {
         console.error('Drive:', driveErr);
-        txt.textContent = '⚠ PDF scaricato, Drive fallito';
-        setTimeout(function() { txt.textContent = '📄 Genera PDF'; }, 4000);
+        var errMsg = (driveErr.message || 'errore sconosciuto').substring(0, 100);
+        txt.textContent = '⚠ ' + errMsg;
+        setTimeout(function() { txt.textContent = '📄 Genera PDF'; }, 8000);
       }
 
     } catch(err) {
