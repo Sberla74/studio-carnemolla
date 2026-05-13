@@ -794,7 +794,21 @@
     spin.classList.remove('hidden');
 
     try {
-      var firmaBase64 = sigPad.toDataURL('image/png');
+      // Comprimi firma a 400×100px JPEG prima di salvare su Firebase
+      var firmaBase64 = await new Promise(function(resolve) {
+        var raw = new Image();
+        raw.onload = function() {
+          var c = document.createElement('canvas');
+          c.width = 400; c.height = 100;
+          var cx = c.getContext('2d');
+          cx.fillStyle = 'white';
+          cx.fillRect(0, 0, 400, 100);
+          cx.drawImage(raw, 0, 0, 400, 100);
+          resolve(c.toDataURL('image/jpeg', 0.7));
+        };
+        raw.onerror = function() { resolve(sigPad.toDataURL('image/png')); };
+        raw.src = sigPad.toDataURL('image/png');
+      });
 
       if (currentConsensoId) {
         await update(ref(db, 'consensi/' + currentConsensoId), {
