@@ -725,9 +725,9 @@
       txt.textContent = 'Salvataggio Drive…';
       var pdfBase64 = doc.output('datauristring').split(',')[1];
       try {
-        var driveResp = await fetch(SCRIPT_URL, {
+        var driveResp = await fetch(WORKER_URL + '/drive', {
           method: 'POST',
-          headers: { 'Content-Type': 'text/plain' },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ pdf: pdfBase64, fileName: nomeFile })
         });
         var driveData = await driveResp.json();
