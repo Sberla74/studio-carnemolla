@@ -692,7 +692,25 @@
 
       var sigX = pW - mg - 65;
       try {
-        doc.addImage(firmaImg, 'PNG', sigX, y, 65, 28);
+        // Comprimi la firma: ridimensiona a max 400×160px e converti in JPEG
+        var firmaCompressed = await new Promise(function(resolve) {
+          var img = new Image();
+          img.onload = function() {
+            var maxW = 400, maxH = 160;
+            var ratio = Math.min(maxW / (img.naturalWidth || maxW), maxH / (img.naturalHeight || maxH), 1);
+            var c = document.createElement('canvas');
+            c.width  = Math.max(1, Math.round((img.naturalWidth  || maxW) * ratio));
+            c.height = Math.max(1, Math.round((img.naturalHeight || maxH) * ratio));
+            var cx = c.getContext('2d');
+            cx.fillStyle = 'white';
+            cx.fillRect(0, 0, c.width, c.height);
+            cx.drawImage(img, 0, 0, c.width, c.height);
+            resolve(c.toDataURL('image/jpeg', 0.7));
+          };
+          img.onerror = function() { resolve(firmaImg); };
+          img.src = firmaImg;
+        });
+        doc.addImage(firmaCompressed, 'JPEG', sigX, y, 65, 28);
       } catch(e) { console.error('Firma img:', e); }
       y += 31;
 
