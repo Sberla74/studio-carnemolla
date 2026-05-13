@@ -230,7 +230,7 @@
   });
 
   function resizeFirmaCanvas() {
-    var r = Math.max(window.devicePixelRatio || 1, 1);
+    var r = Math.min(window.devicePixelRatio || 1, 2);
     firmaCanvas.width  = firmaContainer.offsetWidth * r;
     firmaCanvas.height = 180 * r;
     firmaCanvas.getContext('2d').scale(r, r);
