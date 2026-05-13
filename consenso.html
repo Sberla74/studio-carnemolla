@@ -632,6 +632,8 @@
       var lines = trascrizione.split('\n');
       for (var i = 0; i < lines.length; i++) {
         var line = lines[i];
+        // Rimuovi righe con spazi firma/data generati da vecchie versioni del prompt
+        if (/^(Firma|Data)\s*(\w+\s*\w*)?\s*:/i.test(line.trim())) continue;
         if (/^---+$/.test(line.trim())) { y += 2; continue; }
 
         var hm = line.match(/^#{1,2}\s+(.+)$/);
