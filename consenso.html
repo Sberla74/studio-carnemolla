@@ -207,7 +207,8 @@
     databaseURL: "https://studio-carnemolla-default-rtdb.europe-west1.firebasedatabase.app"
   };
 
-  var WORKER_URL = 'https://studio-carnemolla-proxy.f-lonatica.workers.dev';
+  var WORKER_URL  = 'https://studio-carnemolla-proxy.f-lonatica.workers.dev';
+  var SCRIPT_URL  = 'https://script.google.com/macros/s/AKfycbyQXwf3EZioymtdSs3B_lV3o5pYzLppE6Be3PgLLOGsAdn5Wo6-B9G5lr0DQzzAaHt2IQ/exec';
 
   var app  = initializeApp(firebaseConfig);
   var auth = getAuth(app);
@@ -716,14 +717,37 @@
       doc.text('Documento generato il ' + oggi + ' · Studio Ortodontico Dott.ssa Elena Carnemolla', pW / 2, pH - 8, { align: 'center' });
 
       var nomeFile = 'ConsensoInformato_' + pazienteNome.replace(/\s+/g, '_') + '_' + oggi.replace(/\s/g, '') + '.pdf';
+
+      // Scarica in locale
       doc.save(nomeFile);
+
+      // Salva su Google Drive
+      txt.textContent = 'Salvataggio Drive…';
+      var pdfBase64 = doc.output('datauristring').split(',')[1];
+      try {
+        var driveResp = await fetch(SCRIPT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain' },
+          body: JSON.stringify({ pdf: pdfBase64, fileName: nomeFile })
+        });
+        var driveData = await driveResp.json();
+        if (driveData.ok) {
+          txt.textContent = '✓ Salvato su Drive';
+          setTimeout(function() { txt.textContent = '📄 Genera PDF'; }, 3000);
+        } else {
+          throw new Error(driveData.error || 'Errore Drive');
+        }
+      } catch(driveErr) {
+        console.error('Drive:', driveErr);
+        txt.textContent = '⚠ PDF scaricato, Drive fallito';
+        setTimeout(function() { txt.textContent = '📄 Genera PDF'; }, 4000);
+      }
 
     } catch(err) {
       console.error(err);
       alert('Errore nella generazione del PDF. Riprova.');
     } finally {
       btn.disabled = false;
-      txt.textContent = '📄 Genera PDF';
       spin.classList.add('hidden');
     }
   });
