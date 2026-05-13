@@ -180,6 +180,7 @@
   </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script>
 <script type="module">
   import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
@@ -196,6 +197,7 @@
 
   const app = initializeApp(firebaseConfig);
   const db  = getDatabase(app);
+  const WORKER_URL = 'https://studio-carnemolla-proxy.f-lonatica.workers.dev';
 
   // ── Signature Pad ──────────────────────────────
   const canvas    = document.getElementById('signature-pad');
@@ -205,7 +207,7 @@
   });
 
   function resizeCanvas() {
-    var r = Math.max(window.devicePixelRatio || 1, 1);
+    var r = Math.min(window.devicePixelRatio || 1, 2);
     canvas.width  = container.offsetWidth * r;
     canvas.height = 150 * r;
     canvas.getContext('2d').scale(r, r);
@@ -270,7 +272,23 @@
     spin.classList.remove('hidden');
 
     try {
-      await push(ref(db, 'pazienti'), {
+      // Comprimi firma a 400×100px JPEG 70%
+      var firmaBase64 = await new Promise(function(resolve) {
+        var raw = new Image();
+        raw.onload = function() {
+          var c = document.createElement('canvas');
+          c.width = 400; c.height = 100;
+          var cx = c.getContext('2d');
+          cx.fillStyle = 'white';
+          cx.fillRect(0, 0, 400, 100);
+          cx.drawImage(raw, 0, 0, 400, 100);
+          resolve(c.toDataURL('image/jpeg', 0.7));
+        };
+        raw.onerror = function() { resolve(sigPad.toDataURL('image/png')); };
+        raw.src = sigPad.toDataURL('image/png');
+      });
+
+      var paziente = {
         nome:        document.getElementById('nome').value.trim(),
         cognome:     document.getElementById('cognome').value.trim(),
         dataNascita: document.getElementById('dataNascita').value,
@@ -283,10 +301,25 @@
         cap:         document.getElementById('cap').value.trim(),
         note:        document.getElementById('note').value.trim(),
         privacy:     true,
-        marketing:   document.getElementById('marketing').checked,
-        firma:       sigPad.toDataURL(),
+        marketing:   document.getElementById('marketing').checked
+      };
+
+      await push(ref(db, 'pazienti'), Object.assign({}, paziente, {
+        firma: firmaBase64,
         dataRegistrazione: serverTimestamp()
-      });
+      }));
+
+      // Genera PDF privacy e invia a Drive (fire-and-forget)
+      try {
+        var pdfBase64    = generaPrivacyPDF(paziente, firmaBase64);
+        var pazienteNome = paziente.nome + ' ' + paziente.cognome;
+        var nomeFile     = 'Privacy_' + paziente.cognome + '_' + paziente.nome + '.pdf';
+        await fetch(WORKER_URL + '/drive', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ pdf: pdfBase64, fileName: nomeFile, pazienteNome: pazienteNome })
+        });
+      } catch(driveErr) { console.warn('Drive privacy:', driveErr.message); }
 
       document.getElementById('form-container').classList.add('hidden');
       document.getElementById('success-state').classList.remove('hidden');
@@ -300,6 +333,116 @@
       spin.classList.add('hidden');
     }
   });
+
+  function generaPrivacyPDF(p, firmaDataUrl) {
+    var { jsPDF } = window.jspdf;
+    var doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    var W   = doc.internal.pageSize.getWidth();
+    var y   = 18;
+
+    // ── Header ──
+    doc.setFillColor(15, 118, 110);
+    doc.rect(14, y - 7, 18, 18, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(11); doc.setFont('helvetica', 'bold');
+    doc.text('EC', 23, y + 3, { align: 'center' });
+
+    doc.setTextColor(15, 23, 42);
+    doc.setFontSize(13); doc.setFont('helvetica', 'bold');
+    doc.text('Dott.ssa Elena Carnemolla', 36, y - 1);
+    doc.setFontSize(9); doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100, 116, 139);
+    doc.text('Specialista in Ortodonzia', 36, y + 5);
+
+    y += 16;
+    doc.setDrawColor(226, 232, 240);
+    doc.line(14, y, W - 14, y);
+    y += 10;
+
+    // ── Titolo ──
+    doc.setFontSize(14); doc.setFont('helvetica', 'bold');
+    doc.setTextColor(15, 23, 42);
+    doc.text('MODULO PRIVACY E DATI PAZIENTE', W / 2, y, { align: 'center' });
+    y += 5;
+    doc.setFontSize(9); doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100, 116, 139);
+    var oggi = new Date().toLocaleDateString('it-IT');
+    doc.text('Data: ' + oggi, W / 2, y, { align: 'center' });
+    y += 12;
+
+    function sectionTitle(title) {
+      doc.setFillColor(240, 253, 250);
+      doc.rect(14, y - 4, W - 28, 8, 'F');
+      doc.setFontSize(9); doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 118, 110);
+      doc.text(title, 16, y + 1);
+      y += 10;
+    }
+
+    function row(label, value) {
+      doc.setFontSize(9); doc.setFont('helvetica', 'bold');
+      doc.setTextColor(71, 85, 105);
+      doc.text(label + ':', 16, y);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(15, 23, 42);
+      doc.text(String(value || '–'), 52, y);
+      y += 5.5;
+    }
+
+    // ── Dati paziente ──
+    sectionTitle('DATI PAZIENTE');
+    row('Nome e Cognome', (p.nome || '') + ' ' + (p.cognome || ''));
+    row('Data di nascita', p.dataNascita ? new Date(p.dataNascita).toLocaleDateString('it-IT') : '–');
+    row('Telefono', p.telefono || '–');
+    row('Email', p.email || '–');
+    var ind = [p.via, p.civico].filter(Boolean).join(' ');
+    var loc = [p.cap, p.citta, p.provincia].filter(Boolean).join(' ');
+    row('Indirizzo', [ind, loc].filter(Boolean).join(', ') || '–');
+    if (p.note) { row('Note', p.note); }
+    y += 4;
+
+    // ── Testo privacy ──
+    sectionTitle('INFORMATIVA AI SENSI DEL REGOLAMENTO UE 2016/679 (GDPR)');
+    doc.setFontSize(8.5); doc.setFont('helvetica', 'normal');
+    doc.setTextColor(30, 41, 59);
+    var privacyText =
+      'Il titolare del trattamento è la Dott.ssa Elena Carnemolla, Specialista in Ortodonzia. ' +
+      'I dati personali forniti saranno trattati esclusivamente per finalità di diagnosi e cura, ' +
+      'per la gestione del rapporto medico-paziente e per adempiere agli obblighi di legge in ambito sanitario.\n\n' +
+      'I dati non saranno comunicati a terzi salvo obbligo di legge. La conservazione avviene nel rispetto ' +
+      'delle normative sanitarie vigenti (D.Lgs. 196/2003 aggiornato dal D.Lgs. 101/2018).\n\n' +
+      "L'interessato ha il diritto di accedere ai propri dati, richiederne la rettifica, la cancellazione " +
+      "o la limitazione del trattamento, e di opporsi al trattamento.";
+    var lines = doc.splitTextToSize(privacyText, W - 30);
+    doc.text(lines, 16, y);
+    y += lines.length * 4 + 8;
+
+    // ── Consensi ──
+    sectionTitle('DICHIARAZIONE DI CONSENSO');
+    doc.setFontSize(9); doc.setFont('helvetica', 'normal');
+    doc.setTextColor(15, 23, 42);
+    doc.text('☑ Ho letto e accetto l\'informativa sul trattamento dei dati personali.', 16, y);
+    y += 6;
+    doc.text((p.marketing ? '☑' : '☐') + ' Acconsento a ricevere comunicazioni dello studio (facoltativo).', 16, y);
+    y += 12;
+
+    // ── Firma ──
+    sectionTitle('FIRMA DEL PAZIENTE');
+    if (firmaDataUrl) {
+      try { doc.addImage(firmaDataUrl, 'JPEG', 16, y, 70, 18); } catch(e) {}
+    }
+    doc.setFontSize(9); doc.setFont('helvetica', 'normal');
+    doc.setTextColor(15, 23, 42);
+    doc.text((p.nome || '') + ' ' + (p.cognome || ''), W - 14, y + 8, { align: 'right' });
+    doc.text(oggi, W - 14, y + 14, { align: 'right' });
+
+    // ── Footer ──
+    var H = doc.internal.pageSize.getHeight();
+    doc.setFontSize(7.5); doc.setTextColor(148, 163, 184);
+    doc.text('Documento generato il ' + oggi + ' · Studio Ortodontico Dott.ssa Elena Carnemolla', W / 2, H - 8, { align: 'center' });
+
+    return doc.output('datauristring').split(',')[1];
+  }
 </script>
 <script>if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');</script>
 </body>
