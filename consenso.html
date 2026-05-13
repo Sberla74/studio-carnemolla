@@ -194,34 +194,8 @@
   </div>
 </main>
 
-<!-- Template PDF nascosto -->
-<div id="pdf-template" style="display:none; font-family:Arial,sans-serif; color:#111; padding:0;">
-  <div style="border-bottom:3px solid #0F766E; padding-bottom:16px; margin-bottom:24px;">
-    <div style="display:flex; align-items:center; gap:16px;">
-      <div style="width:52px; height:52px; background:#0F766E; border-radius:10px; display:flex; align-items:center; justify-content:center; color:white; font-size:18px; font-weight:700; flex-shrink:0;">EC</div>
-      <div>
-        <div style="font-size:18px; font-weight:700; color:#0F766E;">Dott.ssa Elena Carnemolla</div>
-        <div style="font-size:13px; color:#555;">Specialista in Ortodonzia · Studio Ortodontico</div>
-      </div>
-    </div>
-  </div>
-  <h1 style="font-size:20px; text-align:center; margin-bottom:6px; color:#111;">CONSENSO INFORMATO</h1>
-  <div id="pdf-paziente-info" style="text-align:center; font-size:13px; color:#555; margin-bottom:24px;"></div>
-  <div id="pdf-body" style="font-size:13px; line-height:1.7;"></div>
-  <div style="margin-top:40px; padding-top:16px; border-top:1px solid #ddd; display:flex; justify-content:flex-end;">
-    <div style="text-align:center; min-width:220px;">
-      <img id="pdf-firma" style="max-height:80px; max-width:220px; border:1px solid #ddd; border-radius:4px; background:white; display:block; margin:0 auto 8px;" alt="Firma paziente">
-      <div style="border-top:1px solid #555; padding-top:6px; font-size:12px; font-weight:600; color:#111;" id="pdf-nome-paziente"></div>
-      <div id="pdf-data-firma" style="font-size:11px; color:#888; margin-top:4px;"></div>
-    </div>
-  </div>
-  <div style="margin-top:24px; font-size:10px; color:#aaa; text-align:center; border-top:1px solid #eee; padding-top:12px;">
-    Documento generato il <span id="pdf-data-gen"></span> · Studio Ortodontico Dott.ssa Elena Carnemolla
-  </div>
-</div>
-
 <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script type="module">
   import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
   import { getAuth, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
@@ -595,8 +569,8 @@
     setStep(3);
   });
 
-  // ── Genera PDF ────────────────────────────────
-  document.getElementById('genera-pdf-btn').addEventListener('click', async function() {
+  // ── Genera PDF (jsPDF puro, niente html2canvas) ──
+  document.getElementById('genera-pdf-btn').addEventListener('click', function() {
     var btn  = document.getElementById('genera-pdf-btn');
     var txt  = document.getElementById('pdf-text');
     var spin = document.getElementById('pdf-spinner');
@@ -605,72 +579,133 @@
     txt.textContent = 'Generazione…';
     spin.classList.remove('hidden');
 
-    var tempDiv = null;
     try {
       var trascrizione = document.getElementById('trascrizione').value;
       var firmaImg     = document.getElementById('firma-preview-small').src;
       var oggi         = new Date().toLocaleDateString('it-IT', { day:'2-digit', month:'long', year:'numeric' });
 
-      // Converti markdown → HTML pulito
-      var bodyHtml = trascrizione
-        .replace(/^#{1,2} (.+)$/mg, '<h3 style="font-size:14px;font-weight:700;color:#0F766E;margin:20px 0 6px;border-bottom:1px solid #e2e8f0;padding-bottom:4px;">$1</h3>')
-        .replace(/^---+$/mg, '')
-        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\n{2,}/g, '</p><p style="margin:0 0 8px;">')
-        .replace(/\n/g, '<br>');
+      var jsPDF  = window.jspdf.jsPDF;
+      var doc    = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+      var pW     = 210, pH = 297, mg = 15, cW = pW - 2 * mg;
+      var y      = mg;
 
-      // Crea div temporaneo fuori schermo (evita spazio bianco nel PDF)
-      tempDiv = document.createElement('div');
-      tempDiv.style.cssText = 'position:absolute;left:-9999px;top:0;width:794px;background:white;font-family:Arial,sans-serif;color:#111;padding:0;';
-      tempDiv.innerHTML =
-        '<div style="border-bottom:3px solid #0F766E;padding-bottom:16px;margin-bottom:24px;">' +
-          '<div style="display:flex;align-items:center;gap:16px;">' +
-            '<div style="width:52px;height:52px;background:#0F766E;border-radius:10px;display:flex;align-items:center;justify-content:center;color:white;font-size:18px;font-weight:700;flex-shrink:0;">EC</div>' +
-            '<div>' +
-              '<div style="font-size:18px;font-weight:700;color:#0F766E;">Dott.ssa Elena Carnemolla</div>' +
-              '<div style="font-size:13px;color:#555;">Specialista in Ortodonzia · Studio Ortodontico</div>' +
-            '</div>' +
-          '</div>' +
-        '</div>' +
-        '<h1 style="font-size:20px;text-align:center;margin-bottom:6px;color:#111;">CONSENSO INFORMATO</h1>' +
-        '<div style="text-align:center;font-size:13px;color:#555;margin-bottom:24px;">Paziente: ' + pazienteNome + '  ·  Data: ' + oggi + '</div>' +
-        '<div style="font-size:13px;line-height:1.7;"><p style="margin:0 0 8px;">' + bodyHtml + '</p></div>' +
-        '<div style="margin-top:40px;padding-top:16px;border-top:1px solid #ddd;display:flex;justify-content:flex-end;">' +
-          '<div style="text-align:center;min-width:220px;">' +
-            '<img id="tmp-firma-img" src="' + firmaImg + '" style="max-height:80px;max-width:220px;border:1px solid #ddd;border-radius:4px;background:white;display:block;margin:0 auto 8px;">' +
-            '<div style="border-top:1px solid #555;padding-top:6px;font-size:12px;font-weight:600;color:#111;">' + pazienteNome + '</div>' +
-            '<div style="font-size:11px;color:#888;margin-top:4px;">Firmato il ' + oggi + '</div>' +
-          '</div>' +
-        '</div>' +
-        '<div style="margin-top:24px;font-size:10px;color:#aaa;text-align:center;border-top:1px solid #eee;padding-top:12px;">' +
-          'Documento generato il ' + oggi + ' · Studio Ortodontico Dott.ssa Elena Carnemolla' +
-        '</div>';
+      function checkBreak(needed) {
+        if (y + needed > pH - mg) { doc.addPage(); y = mg; }
+      }
 
-      document.body.appendChild(tempDiv);
+      // ── Intestazione ──
+      doc.setFillColor(15, 118, 110);
+      doc.roundedRect(mg, y, 16, 16, 2, 2, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.text('EC', mg + 8, y + 10.5, { align: 'center' });
 
-      // Aspetta che la firma sia renderizzata
-      await new Promise(function(resolve) {
-        var img = tempDiv.querySelector('#tmp-firma-img');
-        if (img.complete && img.naturalHeight > 0) { resolve(); return; }
-        img.onload  = resolve;
-        img.onerror = resolve;
-      });
+      doc.setTextColor(15, 118, 110);
+      doc.setFontSize(13);
+      doc.text('Dott.ssa Elena Carnemolla', mg + 20, y + 6);
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(120, 120, 120);
+      doc.text('Specialista in Ortodonzia · Studio Ortodontico', mg + 20, y + 12);
+      y += 20;
 
-      var nomeFile = 'ConsensoInformato_' + pazienteNome.replace(/\s+/g,'_') + '_' + oggi.replace(/\s/g,'') + '.pdf';
+      doc.setDrawColor(15, 118, 110);
+      doc.setLineWidth(0.5);
+      doc.line(mg, y, pW - mg, y);
+      y += 8;
 
-      await html2pdf().set({
-        margin:      [15, 15, 15, 15],
-        filename:    nomeFile,
-        image:       { type: 'jpeg', quality: 0.95 },
-        html2canvas: { scale: 2, useCORS: true, allowTaint: true, logging: false },
-        jsPDF:       { unit: 'mm', format: 'a4', orientation: 'portrait' }
-      }).from(tempDiv).save();
+      // ── Titolo ──
+      doc.setFontSize(15);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(20, 20, 20);
+      doc.text('CONSENSO INFORMATO', pW / 2, y, { align: 'center' });
+      y += 6;
+
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(120, 120, 120);
+      doc.text('Paziente: ' + pazienteNome + '   ·   Data: ' + oggi, pW / 2, y, { align: 'center' });
+      y += 10;
+
+      // ── Corpo ──
+      var lines = trascrizione.split('\n');
+      for (var i = 0; i < lines.length; i++) {
+        var line = lines[i];
+        if (/^---+$/.test(line.trim())) { y += 2; continue; }
+
+        var hm = line.match(/^#{1,2}\s+(.+)$/);
+        if (hm) {
+          checkBreak(12);
+          y += 3;
+          doc.setFillColor(240, 253, 250);
+          doc.rect(mg, y - 4, cW, 8, 'F');
+          doc.setDrawColor(15, 118, 110);
+          doc.setLineWidth(0.2);
+          doc.line(mg, y + 4, pW - mg, y + 4);
+          doc.setFontSize(10);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(15, 118, 110);
+          doc.text(hm[1], mg + 2, y + 1);
+          y += 10;
+          continue;
+        }
+
+        if (!line.trim()) { y += 2; continue; }
+
+        var clean = line.replace(/\*\*(.+?)\*\*/g, '$1');
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(40, 40, 40);
+        var wrapped = doc.splitTextToSize(clean, cW);
+        for (var j = 0; j < wrapped.length; j++) {
+          checkBreak(5);
+          doc.text(wrapped[j], mg, y);
+          y += 5;
+        }
+      }
+
+      // ── Firma in basso a destra ──
+      checkBreak(50);
+      y += 10;
+      doc.setDrawColor(200, 200, 200);
+      doc.setLineWidth(0.3);
+      doc.line(mg, y, pW - mg, y);
+      y += 8;
+
+      var sigX = pW - mg - 65;
+      try {
+        doc.addImage(firmaImg, 'PNG', sigX, y, 65, 28);
+      } catch(e) { console.error('Firma img:', e); }
+      y += 31;
+
+      doc.setDrawColor(60, 60, 60);
+      doc.setLineWidth(0.3);
+      doc.line(sigX, y, pW - mg, y);
+      y += 4;
+
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(20, 20, 20);
+      doc.text(pazienteNome, sigX + 32.5, y, { align: 'center' });
+      y += 4;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(140, 140, 140);
+      doc.text('Firmato il ' + oggi, sigX + 32.5, y, { align: 'center' });
+
+      // ── Footer ──
+      doc.setFontSize(8);
+      doc.setTextColor(190, 190, 190);
+      doc.text('Documento generato il ' + oggi + ' · Studio Ortodontico Dott.ssa Elena Carnemolla', pW / 2, pH - 8, { align: 'center' });
+
+      var nomeFile = 'ConsensoInformato_' + pazienteNome.replace(/\s+/g, '_') + '_' + oggi.replace(/\s/g, '') + '.pdf';
+      doc.save(nomeFile);
 
     } catch(err) {
       console.error(err);
       alert('Errore nella generazione del PDF. Riprova.');
     } finally {
-      if (tempDiv) document.body.removeChild(tempDiv);
       btn.disabled = false;
       txt.textContent = '📄 Genera PDF';
       spin.classList.add('hidden');
