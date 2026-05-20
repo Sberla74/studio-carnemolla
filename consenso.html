@@ -53,9 +53,10 @@
 
     <div class="steps">
       <div class="step active" id="step-1">🎙 1. Dettatura</div>
-      <div class="step" id="step-2">🤖 2. Strutturazione AI</div>
+      <div class="step" id="step-2">🤖 2. AI</div>
       <div class="step" id="step-3">✅ 3. Validazione</div>
-      <div class="step" id="step-4">✍ 4. Firma</div>
+      <div class="step" id="step-4">📱 4. OTP</div>
+      <div class="step" id="step-5">✍ 5. Firma</div>
     </div>
 
     <div class="alert alert-info mb-6">
@@ -139,9 +140,9 @@
           <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
             <div style="flex:1; min-width:200px;">
               <div style="font-weight:600; color:var(--primary); margin-bottom:4px;">Documento validato ✓</div>
-              <div style="font-size:13px; color:var(--text-muted);">Ora fai firmare il paziente per completare il consenso informato.</div>
+              <div style="font-size:13px; color:var(--text-muted);">Verifica l'identità del paziente via SMS (OTP) e acquisisci la firma per completare il consenso.</div>
             </div>
-            <button id="apri-firma-btn" class="btn btn-primary">✍ Fai firmare il paziente</button>
+            <button id="apri-otp-btn" class="btn btn-primary">📱 Verifica e firma</button>
           </div>
           <div id="firma-acquisita-info" class="hidden mt-4">
             <div class="alert alert-success">
@@ -159,7 +160,50 @@
       </div>
     </div>
 
-    <!-- FASE 4: Firma paziente -->
+    <!-- FASE 4: Verifica OTP -->
+    <div id="fase-otp" class="hidden">
+      <div class="card">
+        <div class="card-title mb-2">📱 Verifica Identità Paziente</div>
+        <p class="text-muted mb-4" style="font-size:13px;">
+          Invia un codice OTP via SMS al paziente. La verifica attribuisce al documento valore di
+          <strong>Firma Elettronica Avanzata (FEA)</strong> ai sensi del Reg. UE eIDAS 910/2014.
+        </p>
+        <div class="form-group mb-4">
+          <label class="form-label" style="font-size:13px; font-weight:600;">Numero di telefono del paziente</label>
+          <input type="tel" id="otp-telefono" class="form-input" placeholder="+39 333 1234567" style="margin-top:6px;">
+          <p class="text-muted" style="font-size:12px; margin-top:4px;">Pre-compilato dall'anagrafica. Verificare che sia corretto prima di inviare.</p>
+        </div>
+        <div id="otp-error" class="alert alert-error hidden mb-4">
+          <span>⚠</span><span id="otp-error-text">Errore.</span>
+        </div>
+        <div class="action-bar mb-4" style="justify-content:space-between;">
+          <button id="annulla-otp-btn" class="btn btn-secondary">← Indietro</button>
+          <button id="invia-otp-btn" class="btn btn-primary">
+            <span id="invia-otp-text">📤 Invia codice SMS</span>
+            <span id="invia-otp-spinner" class="spinner hidden"></span>
+          </button>
+        </div>
+        <div id="otp-sent-section" class="hidden">
+          <div class="alert alert-success mb-4">
+            <span>✓</span><span>SMS inviato. Chiedi al paziente il codice a 6 cifre ricevuto.</span>
+          </div>
+          <div class="form-group mb-4">
+            <label class="form-label" style="font-size:13px; font-weight:600;">Codice ricevuto dal paziente</label>
+            <input type="text" id="otp-codice" class="form-input" placeholder="000000"
+                   maxlength="6" inputmode="numeric" autocomplete="one-time-code"
+                   style="margin-top:6px; letter-spacing:8px; font-size:24px; text-align:center; font-weight:700;">
+          </div>
+          <div class="action-bar">
+            <button id="verifica-otp-btn" class="btn btn-success">
+              <span id="verifica-otp-text">✓ Verifica e procedi alla firma</span>
+              <span id="verifica-otp-spinner" class="spinner hidden"></span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FASE 5: Firma paziente -->
     <div id="fase-firma" class="hidden">
       <div class="card">
         <div class="card-title mb-2">✍ Firma del Paziente</div>
@@ -221,6 +265,8 @@
 
   var currentConsensoId = consensoId;
   var timerInterval, seconds = 0, isRecording = false;
+  var pazienteTelefono = '';
+  var otpVerificaInfo  = null; // { telefono, timestamp } — impostato dopo verifica OTP
 
   // ── Signature Pad ──────────────────────────────
   var firmaCanvas    = document.getElementById('firma-pad');
@@ -310,6 +356,18 @@
   });
 
   async function init(user) {
+    // Carica sempre dati paziente: nome (fallback) + telefono (per OTP)
+    try {
+      var pSnap = await get(ref(db, 'pazienti/' + pazienteId));
+      if (pSnap.exists()) {
+        var pd = pSnap.val();
+        if (!pazienteNome.trim()) {
+          pazienteNome = ((pd.nome || '') + ' ' + (pd.cognome || '')).trim();
+        }
+        pazienteTelefono = pd.telefono || '';
+      }
+    } catch(e) {}
+
     document.getElementById('header-nome').textContent           = pazienteNome || 'Consenso Informato';
     document.getElementById('paziente-nome-display').textContent = pazienteNome;
     document.getElementById('firma-paziente-nome').textContent   = pazienteNome;
@@ -337,7 +395,7 @@
 
   // ── Steps UI ───────────────────────────────────
   function setStep(n) {
-    for (var i = 1; i <= 4; i++) {
+    for (var i = 1; i <= 5; i++) {
       var el = document.getElementById('step-' + i);
       el.classList.remove('active','done');
       if (i < n) el.classList.add('done');
@@ -357,7 +415,7 @@
 
     if (stato === 'validato') {
       document.getElementById('firma-prompt').classList.remove('hidden');
-      setStep(hasFirma ? 4 : 3);
+      setStep(hasFirma ? 5 : 4);
     } else {
       setStep(2);
     }
@@ -366,9 +424,11 @@
   function showFirmaAcquisita(firmaBase64) {
     document.getElementById('firma-acquisita-info').classList.remove('hidden');
     document.getElementById('firma-preview-small').src = firmaBase64;
-    document.getElementById('apri-firma-btn').textContent = '✍ Aggiorna firma';
+    var btn = document.getElementById('apri-otp-btn');
+    btn.textContent = '✍ Aggiorna firma';
+    btn.dataset.bypass = 'true';
     document.getElementById('genera-pdf-btn').parentElement.style.display = 'block';
-    setStep(4);
+    setStep(5);
   }
 
   // ── Timer ──────────────────────────────────────
@@ -574,20 +634,129 @@
   }
 
   // ── Fase Firma ─────────────────────────────────
-  document.getElementById('apri-firma-btn').addEventListener('click', function() {
-    document.getElementById('fase-trascrizione').classList.add('hidden');
-    document.getElementById('fase-firma').classList.remove('hidden');
-    setStep(4);
-    sigPad.clear();
-    document.getElementById('firma-placeholder').style.display = 'flex';
-    // Ridimensiona il canvas dopo che il div è visibile
-    setTimeout(resizeFirmaCanvas, 50);
+  document.getElementById('apri-otp-btn').addEventListener('click', function() {
+    if (otpVerificaInfo || this.dataset.bypass === 'true') {
+      // OTP già fatto o aggiornamento firma: vai direttamente alla firma
+      document.getElementById('fase-trascrizione').classList.add('hidden');
+      document.getElementById('fase-firma').classList.remove('hidden');
+      setStep(5);
+      sigPad.clear();
+      document.getElementById('firma-placeholder').style.display = 'flex';
+      setTimeout(resizeFirmaCanvas, 50);
+    } else {
+      // Flusso normale: vai alla verifica OTP
+      document.getElementById('fase-trascrizione').classList.add('hidden');
+      document.getElementById('fase-otp').classList.remove('hidden');
+      document.getElementById('otp-telefono').value = pazienteTelefono || '';
+      document.getElementById('otp-sent-section').classList.add('hidden');
+      document.getElementById('otp-codice').value = '';
+      document.getElementById('otp-error').classList.add('hidden');
+      setStep(4);
+    }
   });
 
   document.getElementById('annulla-firma-btn').addEventListener('click', function() {
     document.getElementById('fase-firma').classList.add('hidden');
     document.getElementById('fase-trascrizione').classList.remove('hidden');
-    setStep(3);
+    setStep(otpVerificaInfo ? 5 : 4);
+  });
+
+  // ── OTP handlers ──────────────────────────────
+  document.getElementById('annulla-otp-btn').addEventListener('click', function() {
+    document.getElementById('fase-otp').classList.add('hidden');
+    document.getElementById('fase-trascrizione').classList.remove('hidden');
+    setStep(4);
+  });
+
+  document.getElementById('invia-otp-btn').addEventListener('click', async function() {
+    var telefono = document.getElementById('otp-telefono').value.trim();
+    if (!telefono) {
+      document.getElementById('otp-error-text').textContent = 'Inserisci il numero di telefono del paziente.';
+      document.getElementById('otp-error').classList.remove('hidden');
+      return;
+    }
+    if (!currentConsensoId) {
+      document.getElementById('otp-error-text').textContent = 'Consenso non ancora salvato. Torna alla dettatura e salva prima.';
+      document.getElementById('otp-error').classList.remove('hidden');
+      return;
+    }
+
+    var btn  = document.getElementById('invia-otp-btn');
+    var txt  = document.getElementById('invia-otp-text');
+    var spin = document.getElementById('invia-otp-spinner');
+
+    btn.disabled = true;
+    spin.classList.remove('hidden');
+    txt.textContent = 'Invio…';
+    document.getElementById('otp-error').classList.add('hidden');
+
+    try {
+      var resp = await fetch(WORKER_URL + '/send-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ telefono: telefono, consensoId: currentConsensoId })
+      });
+      var data = await resp.json();
+      if (!data.ok) throw new Error(data.error || 'Errore invio SMS');
+
+      txt.textContent = '✓ SMS inviato';
+      spin.classList.add('hidden');
+      document.getElementById('otp-sent-section').classList.remove('hidden');
+      setTimeout(function() {
+        txt.textContent = '📤 Reinvia SMS';
+        btn.disabled = false;
+      }, 30000);
+
+    } catch (err) {
+      document.getElementById('otp-error-text').textContent = err.message;
+      document.getElementById('otp-error').classList.remove('hidden');
+      btn.disabled = false;
+      txt.textContent = '📤 Invia codice SMS';
+      spin.classList.add('hidden');
+    }
+  });
+
+  document.getElementById('verifica-otp-btn').addEventListener('click', async function() {
+    var codice = document.getElementById('otp-codice').value.trim();
+    if (codice.length !== 6) {
+      document.getElementById('otp-error-text').textContent = 'Inserisci il codice a 6 cifre ricevuto via SMS.';
+      document.getElementById('otp-error').classList.remove('hidden');
+      return;
+    }
+
+    var btn  = document.getElementById('verifica-otp-btn');
+    var txt  = document.getElementById('verifica-otp-text');
+    var spin = document.getElementById('verifica-otp-spinner');
+
+    btn.disabled = true;
+    spin.classList.remove('hidden');
+    txt.textContent = 'Verifica…';
+    document.getElementById('otp-error').classList.add('hidden');
+
+    try {
+      var resp = await fetch(WORKER_URL + '/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ consensoId: currentConsensoId, codice: codice })
+      });
+      var data = await resp.json();
+      if (!data.ok) throw new Error(data.error || 'Verifica fallita');
+
+      otpVerificaInfo = { telefono: data.telefono, timestamp: new Date() };
+      document.getElementById('fase-otp').classList.add('hidden');
+      document.getElementById('fase-firma').classList.remove('hidden');
+      setStep(5);
+      sigPad.clear();
+      document.getElementById('firma-placeholder').style.display = 'flex';
+      setTimeout(resizeFirmaCanvas, 50);
+
+    } catch (err) {
+      document.getElementById('otp-error-text').textContent = err.message;
+      document.getElementById('otp-error').classList.remove('hidden');
+      btn.disabled = false;
+      txt.textContent = '✓ Verifica e procedi alla firma';
+      spin.classList.add('hidden');
+    }
   });
 
   // ── Genera PDF (jsPDF puro, niente html2canvas) ──
@@ -738,6 +907,17 @@
       doc.text('Firmato il ' + oggi, sigX + 32.5, y, { align: 'center' });
 
       // ── Footer ──
+      if (otpVerificaInfo) {
+        var telDisplay = otpVerificaInfo.telefono || '';
+        var dataOtp = otpVerificaInfo.timestamp.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        var oraOtp  = otpVerificaInfo.timestamp.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+        doc.setFontSize(7.5);
+        doc.setTextColor(80, 80, 80);
+        doc.text(
+          'FEA (Reg. UE eIDAS 910/2014) · Identità verificata via OTP SMS al n. ' + telDisplay + ' il ' + dataOtp + ' alle ' + oraOtp,
+          pW / 2, pH - 13, { align: 'center' }
+        );
+      }
       doc.setFontSize(8);
       doc.setTextColor(190, 190, 190);
       doc.text('Documento generato il ' + oggi + ' · Studio Ortodontico Dott.ssa Elena Carnemolla', pW / 2, pH - 8, { align: 'center' });
@@ -754,7 +934,7 @@
         var driveResp = await fetch(WORKER_URL + '/drive', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ pdf: pdfBase64, fileName: nomeFile })
+          body: JSON.stringify({ pdf: pdfBase64, fileName: nomeFile, pazienteNome: pazienteNome })
         });
         var driveData = await driveResp.json();
         if (driveData.ok) {
@@ -811,10 +991,12 @@
       });
 
       if (currentConsensoId) {
-        await update(ref(db, 'consensi/' + currentConsensoId), {
-          firmaConsenso:    firmaBase64,
-          dataFirma:        serverTimestamp()
-        });
+        var firmaUpdate = { firmaConsenso: firmaBase64, dataFirma: serverTimestamp() };
+        if (otpVerificaInfo) {
+          firmaUpdate.otpTelefono       = otpVerificaInfo.telefono;
+          firmaUpdate.otpVerificatoAlle = otpVerificaInfo.timestamp.toISOString();
+        }
+        await update(ref(db, 'consensi/' + currentConsensoId), firmaUpdate);
       }
 
       // Torna alla scheda e mostra firma acquisita
