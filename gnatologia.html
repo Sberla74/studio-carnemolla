@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cartella Gnatologica – Studio Carnemolla</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <meta name="theme-color" content="#0F766E">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Studio EC">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    .gnat-row { display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--border); gap:12px; }
+    .gnat-row:last-child { border-bottom:none; }
+    .gnat-label { font-size:14px; color:var(--text); flex:1; }
+    .flag-group { display:flex; gap:6px; flex-shrink:0; }
+    .flag-btn input { display:none; }
+    .flag-btn span {
+      display:inline-block; padding:5px 16px; border-radius:20px; font-size:13px; font-weight:600;
+      border:1px solid var(--border); color:var(--text-muted); cursor:pointer; transition:all 0.15s; user-select:none;
+    }
+    .flag-btn.si input:checked + span { background:var(--success-bg); color:var(--success); border-color:#BBF7D0; }
+    .flag-btn.no input:checked + span { background:#FEF2F2; color:#DC2626; border-color:#FECACA; }
+    .gnat-input { flex:1; max-width:220px; font-size:13px; padding:7px 10px; }
+    .gnat-row-text { align-items:flex-start; flex-direction:column; gap:6px; padding:12px 0; }
+    .gnat-row-text .gnat-label { font-weight:600; }
+    .gnat-textarea { width:100%; min-height:70px; font-size:13px; line-height:1.6; resize:vertical; box-sizing:border-box; }
+  </style>
+</head>
+<body>
+
+<header class="nav-header">
+  <div class="nav-brand">
+    <div class="nav-logo">EC</div>
+    <div>
+      <div class="nav-title" id="header-nome">Cartella Gnatologica</div>
+      <div class="nav-subtitle">Studio Ortodontico</div>
+    </div>
+  </div>
+  <div class="nav-actions">
+    <a href="#" id="back-btn" class="btn btn-secondary btn-sm">← Scheda</a>
+    <button class="btn btn-secondary btn-sm" id="logout-btn">Esci</button>
+  </div>
+</header>
+
+<main class="dash-content">
+  <div id="loading" class="text-center text-muted" style="padding:64px">Caricamento…</div>
+  <div id="content" class="hidden">
+
+    <div class="alert alert-info mb-6">
+      <span>👤</span>
+      <div><strong id="paziente-nome-display">–</strong><span class="text-muted" style="font-size:13px;"> · Cartella gnatologica</span></div>
+    </div>
+
+    <!-- SEZIONE 1: Valutazione clinica -->
+    <div class="card mb-6">
+      <div class="card-title mb-1">1. Valutazione clinica</div>
+      <p class="text-muted mb-4" style="font-size:13px;">Segna Sì o No per ciascuna voce.</p>
+      <div id="flags-section"></div>
+    </div>
+
+    <!-- SEZIONE 2: Analisi occlusale -->
+    <div class="card mb-6">
+      <div class="card-title mb-1">2. Analisi occlusale</div>
+      <p class="text-muted mb-4" style="font-size:13px;">Inserisci i numeri dei denti interessati (es. 11, 21, 36).</p>
+      <div id="dental-section"></div>
+    </div>
+
+    <!-- SEZIONE 3: ATM e muscolatura -->
+    <div class="card mb-6">
+      <div class="card-title mb-1">3. ATM e muscolatura</div>
+      <p class="text-muted mb-4" style="font-size:13px;">Note cliniche per ciascuna voce.</p>
+      <div id="text-section"></div>
+    </div>
+
+    <div id="save-success" class="alert alert-success hidden mb-4">
+      <span>✓</span><span>Cartella salvata.</span>
+    </div>
+    <div id="save-error" class="alert alert-error hidden mb-4">
+      <span>⚠</span><span>Errore nel salvataggio. Riprova.</span>
+    </div>
+
+    <div class="action-bar" style="justify-content:flex-end; margin-bottom:40px;">
+      <button id="salva-btn" class="btn btn-primary">
+        <span id="salva-text">💾 Salva Cartella</span>
+        <span id="salva-spinner" class="spinner hidden"></span>
+      </button>
+    </div>
+
+  </div>
+</main>
+
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+  import { getAuth, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+  import { getDatabase, ref, set, get, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+
+  var firebaseConfig = {
+    apiKey:      "AIzaSyDLrgBwcVllC8naNv2nNSUevWHzATedTxE",
+    authDomain:  "studio-carnemolla.firebaseapp.com",
+    databaseURL: "https://studio-carnemolla-default-rtdb.europe-west1.firebasedatabase.app"
+  };
+
+  var app  = initializeApp(firebaseConfig);
+  var auth = getAuth(app);
+  var db   = getDatabase(app);
+
+  var params       = new URLSearchParams(window.location.search);
+  var pazienteId   = params.get('pazienteId');
+  var pazienteNome = decodeURIComponent(params.get('nome') || '');
+
+  var flagItems = [
+    { id: 'simmetriaFacciale',  label: 'Simmetria facciale' },
+    { id: 'simmetriaTestaCo',   label: 'Simmetria posizione ortostatica della testa sul collo' },
+    { id: 'simmetriaSpalle',    label: 'Simmetria posizione ortostatica spalle' },
+    { id: 'serramentoDentale',  label: 'Serramento dentale' },
+    { id: 'bruxismo',           label: 'Bruxismo' },
+    { id: 'ansietaRicorrente',  label: 'Ansietà ricorrente' },
+    { id: 'stress',             label: 'Stress' }
+  ];
+
+  var dentalItems = [
+    { id: 'faccetteUsura',            label: 'Faccette di usura' },
+    { id: 'guidaLateralitaDx',        label: 'Guida in lateralità dx' },
+    { id: 'interferenzeLateralitaDx', label: 'Interferenze in lateralità dx' },
+    { id: 'guidaLateralitaSn',        label: 'Guida in lateralità sn' },
+    { id: 'interferenzeLateralitaSn', label: 'Interferenze in lateralità sn' },
+    { id: 'guidaProtrusiva',          label: 'Guida in protrusiva' },
+    { id: 'interferenzeProtrusiva',   label: 'Interferenze in protrusiva' },
+    { id: 'precontatti',              label: 'Precontatti in massima intercuspidazione' }
+  ];
+
+  var textItems = [
+    { id: 'click',       label: 'Click' },
+    { id: 'dolore',      label: 'Dolore' },
+    { id: 'contrattura', label: 'Contrattura' },
+    { id: 'blocco',      label: 'Blocco' }
+  ];
+
+  function buildFlags() {
+    var container = document.getElementById('flags-section');
+    flagItems.forEach(function(item) {
+      var row = document.createElement('div');
+      row.className = 'gnat-row';
+      row.innerHTML =
+        '<span class="gnat-label">' + item.label + '</span>' +
+        '<div class="flag-group">' +
+          '<label class="flag-btn si">' +
+            '<input type="radio" name="' + item.id + '" value="si">' +
+            '<span>Sì</span>' +
+          '</label>' +
+          '<label class="flag-btn no">' +
+            '<input type="radio" name="' + item.id + '" value="no">' +
+            '<span>No</span>' +
+          '</label>' +
+        '</div>';
+      container.appendChild(row);
+    });
+  }
+
+  function buildDental() {
+    var container = document.getElementById('dental-section');
+    dentalItems.forEach(function(item) {
+      var row = document.createElement('div');
+      row.className = 'gnat-row';
+      row.innerHTML =
+        '<span class="gnat-label">' + item.label + '</span>' +
+        '<input type="text" id="' + item.id + '" class="form-input gnat-input" placeholder="es. 11, 21">';
+      container.appendChild(row);
+    });
+  }
+
+  function buildText() {
+    var container = document.getElementById('text-section');
+    textItems.forEach(function(item) {
+      var row = document.createElement('div');
+      row.className = 'gnat-row gnat-row-text';
+      row.innerHTML =
+        '<span class="gnat-label">' + item.label + '</span>' +
+        '<textarea id="' + item.id + '" class="form-input gnat-textarea" placeholder="Note…"></textarea>';
+      container.appendChild(row);
+    });
+  }
+
+  function populateData(data) {
+    if (!data) return;
+    flagItems.forEach(function(item) {
+      if (data[item.id]) {
+        var radio = document.querySelector('input[name="' + item.id + '"][value="' + data[item.id] + '"]');
+        if (radio) radio.checked = true;
+      }
+    });
+    dentalItems.forEach(function(item) {
+      var el = document.getElementById(item.id);
+      if (el && data[item.id] != null) el.value = data[item.id];
+    });
+    textItems.forEach(function(item) {
+      var el = document.getElementById(item.id);
+      if (el && data[item.id] != null) el.value = data[item.id];
+    });
+  }
+
+  function collectData() {
+    var out = {};
+    flagItems.forEach(function(item) {
+      var checked = document.querySelector('input[name="' + item.id + '"]:checked');
+      out[item.id] = checked ? checked.value : null;
+    });
+    dentalItems.forEach(function(item) {
+      var el = document.getElementById(item.id);
+      out[item.id] = el ? el.value.trim() : '';
+    });
+    textItems.forEach(function(item) {
+      var el = document.getElementById(item.id);
+      out[item.id] = el ? el.value.trim() : '';
+    });
+    return out;
+  }
+
+  onAuthStateChanged(auth, function(user) {
+    if (!user) { window.location.href = 'login.html'; return; }
+    if (!pazienteId) { window.location.href = 'dashboard.html'; return; }
+    init(user);
+  });
+
+  document.getElementById('logout-btn').addEventListener('click', function() {
+    signOut(auth).then(function() { window.location.href = 'login.html'; });
+  });
+
+  async function init(user) {
+    buildFlags();
+    buildDental();
+    buildText();
+
+    try {
+      var pSnap = await get(ref(db, 'pazienti/' + pazienteId));
+      if (pSnap.exists()) {
+        var pd = pSnap.val();
+        if (!pazienteNome.trim()) {
+          pazienteNome = ((pd.nome || '') + ' ' + (pd.cognome || '')).trim();
+        }
+      }
+    } catch(e) {}
+
+    document.getElementById('header-nome').textContent           = pazienteNome || 'Cartella Gnatologica';
+    document.getElementById('paziente-nome-display').textContent = pazienteNome;
+    document.getElementById('back-btn').href = 'paziente.html?id=' + pazienteId;
+
+    try {
+      var snap = await get(ref(db, 'gnatologia/' + pazienteId));
+      if (snap.exists()) populateData(snap.val());
+    } catch(e) {}
+
+    document.getElementById('loading').classList.add('hidden');
+    document.getElementById('content').classList.remove('hidden');
+  }
+
+  document.getElementById('salva-btn').addEventListener('click', async function() {
+    var btn  = document.getElementById('salva-btn');
+    var txt  = document.getElementById('salva-text');
+    var spin = document.getElementById('salva-spinner');
+
+    btn.disabled = true;
+    txt.textContent = 'Salvataggio…';
+    spin.classList.remove('hidden');
+    document.getElementById('save-success').classList.add('hidden');
+    document.getElementById('save-error').classList.add('hidden');
+
+    try {
+      var data = collectData();
+      data.dataAggiornamento = serverTimestamp();
+      data.aggiornatoDa      = auth.currentUser ? auth.currentUser.email : '';
+      await set(ref(db, 'gnatologia/' + pazienteId), data);
+      document.getElementById('save-success').classList.remove('hidden');
+      setTimeout(function() { document.getElementById('save-success').classList.add('hidden'); }, 3000);
+    } catch(err) {
+      console.error(err);
+      document.getElementById('save-error').classList.remove('hidden');
+    } finally {
+      btn.disabled = false;
+      txt.textContent = '💾 Salva Cartella';
+      spin.classList.add('hidden');
+    }
+  });
+</script>
+<script>if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');</script>
+</body>
+</html>
