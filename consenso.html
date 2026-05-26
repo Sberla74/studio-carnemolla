@@ -859,6 +859,60 @@
         }
       }
 
+      // ── Sezioni fisse: A) Terapia Fissa e B) Terapia con Allineatori ──
+      var fixedLines = [
+        '## A) TERAPIA FISSA',
+        'Il mancato rispetto dei controlli periodici, o la mancata collaborazione da parte del paziente (mancato uso degli elastici intermascellari, rotture frequenti dell\'apparecchio ortodontico) possono impedire il raggiungimento dell\'obiettivo terapeutico al 100%.',
+        '',
+        'Rischi rari o occasionali:',
+        '- Gengiviti, carie, decalcificazioni dentarie in assenza di corretta igiene orale',
+        '- Lesioni dei tessuti molli',
+        '- Riassorbimento radicolare (può essere favorito da traumi dentali, patologie sistemiche, utilizzo di alcuni farmaci)',
+        '',
+        'In concomitanza o dopo il trattamento ortodontico possono verificarsi disfunzioni a carico dell\'articolazione temporo-mandibolare (collegate ad eruzione ectopica di secondi o terzi molari, spasmi muscolari in condizioni di stress o in presenza di abitudini viziate, incidenti, colpo di frusta, traumi al mento).',
+        '',
+        'Il mancato utilizzo delle contenzioni, la loro rottura o il mancato rispetto degli appuntamenti di controllo delle contenzioni stesse dopo la terapia possono favorire il disallineamento dentale post-terapeutico.',
+        '',
+        'Dopo il termine del trattamento ortodontico, in pazienti in crescita, può verificarsi recidiva del trattamento stesso per crescita sfavorevole delle basi ossee (es. III classi).',
+        '## B) TERAPIA CON ALLINEATORI',
+        'Il mancato rispetto dei controlli periodici, o la mancata collaborazione da parte del paziente (mancato utilizzo o utilizzo per un tempo insufficiente degli allineatori) possono impedire il raggiungimento dell\'obiettivo terapeutico al 100%.',
+        '',
+        'In concomitanza o dopo il trattamento ortodontico possono verificarsi disfunzioni a carico dell\'articolazione temporo-mandibolare (collegate ad eruzione ectopica di secondi o terzi molari, spasmi muscolari in condizioni di stress o in presenza di abitudini viziate, incidenti, colpo di frusta, traumi al mento).',
+        '',
+        'Il mancato utilizzo delle contenzioni, la loro rottura o il mancato rispetto degli appuntamenti di controllo delle contenzioni stesse dopo la terapia possono favorire il disallineamento dentale post-terapeutico.'
+      ];
+      for (var fi = 0; fi < fixedLines.length; fi++) {
+        var fline = fixedLines[fi];
+        if (/^---+$/.test(fline.trim())) { y += 2; continue; }
+        var fhm = fline.match(/^#{1,2}\s+(.+)$/);
+        if (fhm) {
+          checkBreak(12);
+          y += 3;
+          doc.setFillColor(240, 253, 250);
+          doc.rect(mg, y - 4, cW, 8, 'F');
+          doc.setDrawColor(15, 118, 110);
+          doc.setLineWidth(0.2);
+          doc.line(mg, y + 4, pW - mg, y + 4);
+          doc.setFontSize(10);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(15, 118, 110);
+          doc.text(fhm[1], mg + 2, y + 1);
+          y += 10;
+          continue;
+        }
+        if (!fline.trim()) { y += 2; continue; }
+        var fclean = fline.replace(/\*\*(.+?)\*\*/g, '$1');
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(40, 40, 40);
+        var fwrapped = doc.splitTextToSize(fclean, cW);
+        for (var fj = 0; fj < fwrapped.length; fj++) {
+          checkBreak(5);
+          doc.text(fwrapped[fj], mg, y);
+          y += 5;
+        }
+      }
+
       // ── Firma in basso a destra ──
       checkBreak(50);
       y += 10;
