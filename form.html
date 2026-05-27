@@ -143,6 +143,25 @@
       </div>
     </div>
 
+    <!-- Consenso Radiografie -->
+    <div class="form-section">
+      <div class="section-title">Consenso Esami Radiografici</div>
+      <div class="privacy-box">
+        <strong>Dichiarazione di consenso informato per esami radiografici</strong><br><br>
+        La Dott.ssa Elena Carnemolla informa il/la paziente che, ai fini diagnostici e terapeutici del trattamento ortodontico, potrebbe essere necessario eseguire una <strong>radiografia panoramica (OPT)</strong> e/o una <strong>tomografia volumetrica (CBCT)</strong>.<br><br>
+        Tali esami consentono di valutare la struttura ossea, la posizione dei denti, le radici e le strutture anatomiche adiacenti, e sono indispensabili per la pianificazione del trattamento.<br><br>
+        L'esposizione alle radiazioni ionizzanti è <strong>ridotta al minimo</strong> necessario ai soli scopi clinici. La radiografia panoramica comporta una dose di radiazioni molto bassa; la CBCT espone a dosi maggiori, e viene prescritta solo quando le informazioni ottenibili non sono altrimenti acquisibili.<br><br>
+        Gli esami vengono eseguiti da personale sanitario qualificato, formato e con adeguata esperienza, nel rispetto dei requisiti di giustificazione ed ottimizzazione imposti dalla normativa specifica di legge.
+      </div>
+      <div class="checkbox-group mb-4">
+        <input type="checkbox" id="consensoRadiografie" required>
+        <label for="consensoRadiografie">
+          <strong>Dichiaro di aver ricevuto le informazioni sugli esami radiografici e acconsento alla loro esecuzione ove ritenuta necessaria dalla Dott.ssa Elena Carnemolla.</strong>
+        </label>
+      </div>
+      <div class="field-error hidden mb-4" id="consensoRadiografie-error">Devi accettare il consenso per procedere</div>
+    </div>
+
     <!-- Firma -->
     <div class="form-section">
       <div class="section-title">Firma</div>
@@ -248,6 +267,10 @@
     document.getElementById('privacy-error').classList.toggle('hidden', !noPrivacy);
     if (noPrivacy) ok = false;
 
+    var noRadio = !document.getElementById('consensoRadiografie').checked;
+    document.getElementById('consensoRadiografie-error').classList.toggle('hidden', !noRadio);
+    if (noRadio) ok = false;
+
     var noSig = sigPad.isEmpty();
     document.getElementById('firma-error').classList.toggle('hidden', !noSig);
     if (noSig) ok = false;
@@ -300,8 +323,9 @@
         provincia:   document.getElementById('provincia').value.trim().toUpperCase(),
         cap:         document.getElementById('cap').value.trim(),
         note:        document.getElementById('note').value.trim(),
-        privacy:     true,
-        marketing:   document.getElementById('marketing').checked
+        privacy:               true,
+        consensoRadiografie:   true,
+        marketing:             document.getElementById('marketing').checked
       };
 
       await push(ref(db, 'pazienti'), Object.assign({}, paziente, {
@@ -425,6 +449,32 @@
     y += 6;
     doc.text((p.marketing ? '☑' : '☐') + ' Acconsento a ricevere comunicazioni dello studio (facoltativo).', 16, y);
     y += 12;
+
+    // ── Consenso Radiografie ──
+    sectionTitle('CONSENSO INFORMATO ESAMI RADIOGRAFICI');
+    doc.setFontSize(8.5); doc.setFont('helvetica', 'normal');
+    doc.setTextColor(30, 41, 59);
+    var radioText =
+      'La Dott.ssa Elena Carnemolla informa il/la paziente che, ai fini diagnostici e terapeutici del trattamento ' +
+      'ortodontico, potrebbe essere necessario eseguire una radiografia panoramica (OPT) e/o una tomografia volumetrica (CBCT).\n\n' +
+      'Tali esami consentono di valutare la struttura ossea, la posizione dei denti, le radici e le strutture anatomiche ' +
+      'adiacenti, e sono indispensabili per la pianificazione del trattamento.\n\n' +
+      "L'esposizione alle radiazioni ionizzanti è ridotta al minimo necessario ai soli scopi clinici. La radiografia " +
+      'panoramica comporta una dose di radiazioni molto bassa; la CBCT espone a dosi maggiori, e viene prescritta solo ' +
+      'quando le informazioni ottenibili non sono altrimenti acquisibili.\n\n' +
+      'Gli esami vengono eseguiti da personale sanitario qualificato, formato e con adeguata esperienza, nel rispetto ' +
+      'dei requisiti di giustificazione ed ottimizzazione imposti dalla normativa specifica di legge.';
+    var radioLines = doc.splitTextToSize(radioText, W - 30);
+    doc.text(radioLines, 16, y);
+    y += radioLines.length * 4 + 6;
+    doc.setFontSize(9); doc.setFont('helvetica', 'bold');
+    doc.setTextColor(15, 23, 42);
+    var consensoRadioText = doc.splitTextToSize(
+      '☑ Dichiaro di aver ricevuto le informazioni sugli esami radiografici e acconsento alla loro esecuzione ove ritenuta necessaria dalla Dott.ssa Elena Carnemolla.',
+      W - 30
+    );
+    doc.text(consensoRadioText, 16, y);
+    y += consensoRadioText.length * 5 + 8;
 
     // ── Firma ──
     sectionTitle('FIRMA DEL PAZIENTE');
