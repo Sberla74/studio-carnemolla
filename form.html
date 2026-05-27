@@ -162,6 +162,15 @@
       <div class="field-error hidden mb-4" id="consensoRadiografie-error">Devi accettare il consenso per procedere</div>
     </div>
 
+    <!-- Genitore / Tutore -->
+    <div class="form-section">
+      <div class="section-title">Genitore o Tutore</div>
+      <div class="form-group">
+        <label for="genitore">Nome e Cognome del genitore o tutore <span class="text-muted" style="font-weight:400;">(compilare solo se il paziente è minorenne)</span></label>
+        <input type="text" id="genitore" autocomplete="name" placeholder="Es. Mario Rossi">
+      </div>
+    </div>
+
     <!-- Firma -->
     <div class="form-section">
       <div class="section-title">Firma</div>
@@ -325,7 +334,8 @@
         note:        document.getElementById('note').value.trim(),
         privacy:               true,
         consensoRadiografie:   true,
-        marketing:             document.getElementById('marketing').checked
+        marketing:             document.getElementById('marketing').checked,
+        genitore:              document.getElementById('genitore').value.trim()
       };
 
       await push(ref(db, 'pazienti'), Object.assign({}, paziente, {
@@ -422,6 +432,7 @@
     var ind = [p.via, p.civico].filter(Boolean).join(' ');
     var loc = [p.cap, p.citta, p.provincia].filter(Boolean).join(' ');
     row('Indirizzo', [ind, loc].filter(Boolean).join(', ') || '–');
+    if (p.genitore) { row('Genitore / Tutore', p.genitore); }
     if (p.note) { row('Note', p.note); }
     y += 4;
 
