@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cartella Ortognatodontica – Studio Carnemolla</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <meta name="theme-color" content="#0F766E">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Studio EC">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    .orto-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 9px 0;
+      border-bottom: 1px solid var(--border);
+      gap: 12px;
+    }
+    .orto-row:last-child { border-bottom: none; }
+    .orto-label { font-size: 14px; color: var(--text); flex: 1; }
+    .orto-input {
+      width: 80px;
+      min-width: 80px;
+      max-width: 80px;
+      flex: 0 0 80px;
+      font-size: 13px;
+      padding: 6px 8px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--bg-secondary);
+      color: var(--text);
+      text-align: center;
+    }
+    .orto-input:focus {
+      outline: none;
+      border-color: var(--primary);
+      background: white;
+    }
+    .orto-note { width: 100%; min-height: 80px; font-size: 13px; line-height: 1.6; resize: vertical; box-sizing: border-box; }
+  </style>
+</head>
+<body>
+
+<header class="nav-header">
+  <div class="nav-brand">
+    <div class="nav-logo">EC</div>
+    <div>
+      <div class="nav-title" id="header-nome">Cartella Ortognatodontica</div>
+      <div class="nav-subtitle">Studio Ortodontico</div>
+    </div>
+  </div>
+  <div class="nav-actions">
+    <a href="#" id="back-btn" class="btn btn-secondary btn-sm">← Scheda</a>
+    <button class="btn btn-secondary btn-sm" id="logout-btn">Esci</button>
+  </div>
+</header>
+
+<main class="dash-content">
+  <div id="loading" class="text-center text-muted" style="padding:64px">Caricamento…</div>
+  <div id="content" class="hidden">
+
+    <div class="alert alert-info mb-6">
+      <span>👤</span>
+      <div><strong id="paziente-nome-display">–</strong><span class="text-muted" style="font-size:13px;"> · Cartella ortognatodontica</span></div>
+    </div>
+
+    <div class="card mb-6">
+      <div class="card-title mb-4">Rilevazioni cliniche</div>
+
+      <div class="orto-row">
+        <span class="orto-label">Carenza di igiene orale</span>
+        <input class="orto-input" type="text" id="carenzaIgiene" placeholder="–">
+      </div>
+      <div class="orto-row">
+        <span class="orto-label">Lesioni parodontali</span>
+        <input class="orto-input" type="text" id="lesioniParodontali" placeholder="–">
+      </div>
+      <div class="orto-row">
+        <span class="orto-label">Denti mancanti</span>
+        <input class="orto-input" type="text" id="dentiMancanti" placeholder="–">
+      </div>
+      <div class="orto-row">
+        <span class="orto-label">Denti sovrannumerari</span>
+        <input class="orto-input" type="text" id="dentiSovrannumerari" placeholder="–">
+      </div>
+      <div class="orto-row">
+        <span class="orto-label">Denti a prognosi dubbia</span>
+        <input class="orto-input" type="text" id="dentiPrognosiDubbia" placeholder="–">
+      </div>
+      <div class="orto-row">
+        <span class="orto-label">Carie</span>
+        <input class="orto-input" type="text" id="carie" placeholder="–">
+      </div>
+      <div class="orto-row">
+        <span class="orto-label">Ipoplasie</span>
+        <input class="orto-input" type="text" id="ipoplasie" placeholder="–">
+      </div>
+      <div class="orto-row">
+        <span class="orto-label">Ectopie</span>
+        <input class="orto-input" type="text" id="ectopie" placeholder="–">
+      </div>
+      <div class="orto-row">
+        <span class="orto-label">Inclusioni</span>
+        <input class="orto-input" type="text" id="inclusioni" placeholder="–">
+      </div>
+      <div class="orto-row">
+        <span class="orto-label">Disodontiasi</span>
+        <input class="orto-input" type="text" id="disodontiasi" placeholder="–">
+      </div>
+      <div class="orto-row">
+        <span class="orto-label">Diastema con frenulo sup.</span>
+        <input class="orto-input" type="text" id="diastemaFrenuloSup" placeholder="–">
+      </div>
+      <div class="orto-row">
+        <span class="orto-label">Diastema con frenulo inf.</span>
+        <input class="orto-input" type="text" id="diastemaFrenuloInf" placeholder="–">
+      </div>
+      <div class="orto-row">
+        <span class="orto-label">Frenulo linguale corto</span>
+        <input class="orto-input" type="text" id="frenuloLinguale" placeholder="–">
+      </div>
+      <div class="orto-row">
+        <span class="orto-label">Deviazione L.M.S.</span>
+        <input class="orto-input" type="text" id="deviazioneLS" placeholder="–">
+      </div>
+      <div class="orto-row">
+        <span class="orto-label">Deviazione L.M.I.</span>
+        <input class="orto-input" type="text" id="deviazioneLE" placeholder="–">
+      </div>
+      <div class="orto-row">
+        <span class="orto-label">Spinta / interposizione linguale</span>
+        <input class="orto-input" type="text" id="spintaLinguale" placeholder="–">
+      </div>
+      <div class="orto-row">
+        <span class="orto-label">Respirazione orale</span>
+        <input class="orto-input" type="text" id="respirazioneOrale" placeholder="–">
+      </div>
+      <div class="orto-row">
+        <span class="orto-label">Succhiamento delle dita</span>
+        <input class="orto-input" type="text" id="succhiamentoDita" placeholder="–">
+      </div>
+      <div class="orto-row">
+        <span class="orto-label">Affollamento</span>
+        <input class="orto-input" type="text" id="affollamento" placeholder="–">
+      </div>
+      <div class="orto-row">
+        <span class="orto-label">Open bite</span>
+        <input class="orto-input" type="text" id="openBite" placeholder="–">
+      </div>
+      <div class="orto-row">
+        <span class="orto-label">Deep bite</span>
+        <input class="orto-input" type="text" id="deepBite" placeholder="–">
+      </div>
+      <div class="orto-row">
+        <span class="orto-label">Cross bite</span>
+        <input class="orto-input" type="text" id="crossBite" placeholder="–">
+      </div>
+      <div class="orto-row">
+        <span class="orto-label">Classi di Angle</span>
+        <input class="orto-input" type="text" id="classiAngle" placeholder="–">
+      </div>
+
+      <div style="margin-top:20px;">
+        <label style="font-size:13px; font-weight:600; color:var(--text); display:block; margin-bottom:6px;">Note</label>
+        <textarea id="note" class="form-input orto-note" placeholder="Annotazioni su situazioni particolari non rientranti nelle voci standard…"></textarea>
+      </div>
+    </div>
+
+    <div id="save-success" class="alert alert-success hidden mb-4">
+      <span>✓</span><span>Cartella salvata.</span>
+    </div>
+    <div id="save-error" class="alert alert-error hidden mb-4">
+      <span>⚠</span><span>Errore nel salvataggio. Riprova.</span>
+    </div>
+
+    <div class="action-bar" style="justify-content:flex-end; margin-bottom:40px;">
+      <button id="salva-btn" class="btn btn-primary">
+        <span id="salva-text">💾 Salva Cartella</span>
+        <span id="salva-spinner" class="spinner hidden"></span>
+      </button>
+    </div>
+
+  </div>
+</main>
+
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+  import { getAuth, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+  import { getDatabase, ref, set, get, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+
+  var firebaseConfig = {
+    apiKey:      "AIzaSyDLrgBwcVllC8naNv2nNSUevWHzATedTxE",
+    authDomain:  "studio-carnemolla.firebaseapp.com",
+    databaseURL: "https://studio-carnemolla-default-rtdb.europe-west1.firebasedatabase.app"
+  };
+
+  var app  = initializeApp(firebaseConfig);
+  var auth = getAuth(app);
+  var db   = getDatabase(app);
+
+  var params       = new URLSearchParams(window.location.search);
+  var pazienteId   = params.get('pazienteId');
+  var pazienteNome = decodeURIComponent(params.get('nome') || '');
+
+  var fields = [
+    'carenzaIgiene','lesioniParodontali','dentiMancanti','dentiSovrannumerari',
+    'dentiPrognosiDubbia','carie','ipoplasie','ectopie','inclusioni','disodontiasi',
+    'diastemaFrenuloSup','diastemaFrenuloInf','frenuloLinguale','deviazioneLS',
+    'deviazioneLE','spintaLinguale','respirazioneOrale','succhiamentoDita',
+    'affollamento','openBite','deepBite','crossBite','classiAngle','note'
+  ];
+
+  onAuthStateChanged(auth, function(user) {
+    if (!user) { window.location.href = 'login.html'; return; }
+    if (!pazienteId) { window.location.href = 'dashboard.html'; return; }
+    init(user);
+  });
+
+  document.getElementById('logout-btn').addEventListener('click', function() {
+    signOut(auth).then(function() { window.location.href = 'login.html'; });
+  });
+
+  async function init(user) {
+    try {
+      var pSnap = await get(ref(db, 'pazienti/' + pazienteId));
+      if (pSnap.exists()) {
+        var pd = pSnap.val();
+        if (!pazienteNome.trim()) {
+          pazienteNome = ((pd.nome || '') + ' ' + (pd.cognome || '')).trim();
+        }
+      }
+    } catch(e) {}
+
+    document.getElementById('header-nome').textContent           = pazienteNome || 'Cartella Ortognatodontica';
+    document.getElementById('paziente-nome-display').textContent = pazienteNome;
+    document.getElementById('back-btn').href = 'paziente.html?id=' + pazienteId;
+
+    try {
+      var snap = await get(ref(db, 'ortognatodonzia/' + pazienteId));
+      if (snap.exists()) {
+        var data = snap.val();
+        fields.forEach(function(id) {
+          var el = document.getElementById(id);
+          if (el && data[id] != null) el.value = data[id];
+        });
+      }
+    } catch(e) {}
+
+    document.getElementById('loading').classList.add('hidden');
+    document.getElementById('content').classList.remove('hidden');
+  }
+
+  document.getElementById('salva-btn').addEventListener('click', async function() {
+    var btn  = document.getElementById('salva-btn');
+    var txt  = document.getElementById('salva-text');
+    var spin = document.getElementById('salva-spinner');
+
+    btn.disabled = true;
+    txt.textContent = 'Salvataggio…';
+    spin.classList.remove('hidden');
+    document.getElementById('save-success').classList.add('hidden');
+    document.getElementById('save-error').classList.add('hidden');
+
+    try {
+      var data = {};
+      fields.forEach(function(id) {
+        var el = document.getElementById(id);
+        data[id] = el ? el.value.trim() : '';
+      });
+      data.dataAggiornamento = serverTimestamp();
+      data.aggiornatoDa      = auth.currentUser ? auth.currentUser.email : '';
+      await set(ref(db, 'ortognatodonzia/' + pazienteId), data);
+      document.getElementById('save-success').classList.remove('hidden');
+      setTimeout(function() { document.getElementById('save-success').classList.add('hidden'); }, 3000);
+    } catch(err) {
+      console.error(err);
+      document.getElementById('save-error').classList.remove('hidden');
+    } finally {
+      btn.disabled = false;
+      txt.textContent = '💾 Salva Cartella';
+      spin.classList.add('hidden');
+    }
+  });
+</script>
+<script>if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');</script>
+</body>
+</html>

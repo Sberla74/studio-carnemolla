@@ -29,6 +29,9 @@
     .firma-box canvas { display:block; width:100%; }
     .firma-overlay { display:flex; align-items:center; justify-content:center; gap:8px; color:var(--text-muted); font-size:14px; pointer-events:none; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); }
     .firma-wrap { position:relative; margin-bottom:12px; }
+    .tipo-btn { display:block; width:100%; padding:12px 16px; border:2px solid var(--border); border-radius:var(--radius); background:var(--bg-secondary); color:var(--text); font-size:14px; font-weight:500; cursor:pointer; text-align:left; transition:border-color 0.15s, background 0.15s; }
+    .tipo-btn.selected { border-color:var(--primary); background:var(--primary-bg); color:var(--primary); font-weight:600; }
+    .tipo-btn:hover:not(.selected) { border-color:var(--primary); }
   </style>
 </head>
 <body>
@@ -66,6 +69,17 @@
 
     <!-- FASE 1: Dettatura -->
     <div id="fase-registrazione">
+
+      <!-- Selezione tipo consenso -->
+      <div id="tipo-selector" class="card mb-6">
+        <div class="card-title mb-2">Tipo di consenso</div>
+        <p class="text-muted mb-3" style="font-size:13px;">Seleziona il tipo di terapia prima di procedere.</p>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <button class="tipo-btn" data-tipo="intercettiva">🦷 Terapia Intercettiva</button>
+          <button class="tipo-btn" data-tipo="fissa">🔩 Terapia Fissa con Brackets</button>
+          <button class="tipo-btn" data-tipo="allineatori">✨ Terapia Mobile con Allineatori</button>
+        </div>
+      </div>
 
       <div id="no-speech-warning" class="alert alert-error hidden mb-4">
         <span>⚠</span>
@@ -267,6 +281,8 @@
   var timerInterval, seconds = 0, isRecording = false;
   var pazienteTelefono = '';
   var otpVerificaInfo  = null; // { telefono, timestamp } — impostato dopo verifica OTP
+  var tipoConsenso     = ''; // 'intercettiva' | 'fissa' | 'allineatori'
+  var TIPO_LABELS      = { intercettiva: 'TERAPIA INTERCETTIVA', fissa: 'TERAPIA FISSA CON BRACKETS', allineatori: 'TERAPIA MOBILE CON ALLINEATORI' };
 
   // ── Signature Pad ──────────────────────────────
   var firmaCanvas    = document.getElementById('firma-pad');
@@ -283,6 +299,24 @@
     sigPad.clear();
   }
   window.addEventListener('resize', resizeFirmaCanvas);
+
+  // ── Selezione tipo consenso ─────────────────────
+  document.querySelectorAll('.tipo-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.tipo-btn').forEach(function(b) { b.classList.remove('selected'); });
+      this.classList.add('selected');
+      tipoConsenso = this.dataset.tipo;
+      updateStructureBtn();
+    });
+  });
+
+  function setTipo(tipo) {
+    tipoConsenso = tipo || '';
+    document.querySelectorAll('.tipo-btn').forEach(function(b) {
+      b.classList.toggle('selected', b.dataset.tipo === tipoConsenso);
+    });
+    updateStructureBtn();
+  }
 
   sigPad.addEventListener('beginStroke', function() {
     document.getElementById('firma-placeholder').style.display = 'none';
@@ -381,6 +415,7 @@
       var snap = await get(ref(db, 'consensi/' + consensoId));
       if (snap.exists()) {
         var c = snap.val();
+        if (c.tipoConsenso) setTipo(c.tipoConsenso);
         document.getElementById('trascrizione').value = c.trascrizione || '';
         showFaseTrascrizione(c.stato, !!c.firmaConsenso);
         if (c.firmaConsenso) {
@@ -441,7 +476,7 @@
 
   function updateStructureBtn() {
     var ta = document.getElementById('live-transcript');
-    document.getElementById('structure-btn').disabled = !ta.value.trim();
+    document.getElementById('structure-btn').disabled = !ta.value.trim() || !tipoConsenso;
   }
 
   // ── Dettatura ──────────────────────────────────
@@ -552,13 +587,14 @@
         var newRef = await push(ref(db, 'consensi'), {
           pazienteId:        pazienteId,
           pazienteNome:      pazienteNome,
+          tipoConsenso:      tipoConsenso,
           trascrizione:      strutturato,
           stato:             'bozza',
           dataRegistrazione: serverTimestamp()
         });
         currentConsensoId = newRef.key;
       } else {
-        await update(ref(db, 'consensi/' + currentConsensoId), { trascrizione: strutturato });
+        await update(ref(db, 'consensi/' + currentConsensoId), { trascrizione: strutturato, tipoConsenso: tipoConsenso });
       }
 
       document.getElementById('trascrizione').value = strutturato;
@@ -600,7 +636,7 @@
     document.getElementById('save-error').classList.add('hidden');
 
     try {
-      var updateData = { trascrizione: trascrizione, stato: stato };
+      var updateData = { trascrizione: trascrizione, stato: stato, tipoConsenso: tipoConsenso };
       if (stato === 'validato') {
         updateData.dataValidazione = serverTimestamp();
         updateData.validatoDa      = auth.currentUser ? auth.currentUser.email : '';
@@ -611,6 +647,7 @@
       } else {
         var newRef = await push(ref(db, 'consensi'), Object.assign({
           pazienteId: pazienteId, pazienteNome: pazienteNome,
+          tipoConsenso: tipoConsenso,
           dataRegistrazione: serverTimestamp()
         }, updateData));
         currentConsensoId = newRef.key;
@@ -812,6 +849,14 @@
       doc.text('CONSENSO INFORMATO', pW / 2, y, { align: 'center' });
       y += 6;
 
+      if (TIPO_LABELS[tipoConsenso]) {
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(15, 118, 110);
+        doc.text(TIPO_LABELS[tipoConsenso], pW / 2, y, { align: 'center' });
+        y += 6;
+      }
+
       doc.setFontSize(10);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(120, 120, 120);
@@ -859,57 +904,67 @@
         }
       }
 
-      // ── Sezioni fisse: A) Terapia Fissa e B) Terapia con Allineatori ──
-      var fixedLines = [
-        '## A) TERAPIA FISSA',
-        'Il mancato rispetto dei controlli periodici, o la mancata collaborazione da parte del paziente (mancato uso degli elastici intermascellari, rotture frequenti dell\'apparecchio ortodontico) possono impedire il raggiungimento dell\'obiettivo terapeutico al 100%.',
-        '',
-        'Rischi rari o occasionali:',
-        '- Gengiviti, carie, decalcificazioni dentarie in assenza di corretta igiene orale',
-        '- Lesioni dei tessuti molli',
-        '- Riassorbimento radicolare (può essere favorito da traumi dentali, patologie sistemiche, utilizzo di alcuni farmaci)',
-        '',
-        'In concomitanza o dopo il trattamento ortodontico possono verificarsi disfunzioni a carico dell\'articolazione temporo-mandibolare (collegate ad eruzione ectopica di secondi o terzi molari, spasmi muscolari in condizioni di stress o in presenza di abitudini viziate, incidenti, colpo di frusta, traumi al mento).',
-        '',
-        'Il mancato utilizzo delle contenzioni, la loro rottura o il mancato rispetto degli appuntamenti di controllo delle contenzioni stesse dopo la terapia possono favorire il disallineamento dentale post-terapeutico.',
-        '',
-        'Dopo il termine del trattamento ortodontico, in pazienti in crescita, può verificarsi recidiva del trattamento stesso per crescita sfavorevole delle basi ossee (es. III classi).',
-        '## B) TERAPIA CON ALLINEATORI',
-        'Il mancato rispetto dei controlli periodici, o la mancata collaborazione da parte del paziente (mancato utilizzo o utilizzo per un tempo insufficiente degli allineatori) possono impedire il raggiungimento dell\'obiettivo terapeutico al 100%.',
-        '',
-        'In concomitanza o dopo il trattamento ortodontico possono verificarsi disfunzioni a carico dell\'articolazione temporo-mandibolare (collegate ad eruzione ectopica di secondi o terzi molari, spasmi muscolari in condizioni di stress o in presenza di abitudini viziate, incidenti, colpo di frusta, traumi al mento).',
-        '',
-        'Il mancato utilizzo delle contenzioni, la loro rottura o il mancato rispetto degli appuntamenti di controllo delle contenzioni stesse dopo la terapia possono favorire il disallineamento dentale post-terapeutico.'
-      ];
-      for (var fi = 0; fi < fixedLines.length; fi++) {
-        var fline = fixedLines[fi];
-        if (/^---+$/.test(fline.trim())) { y += 2; continue; }
-        var fhm = fline.match(/^#{1,2}\s+(.+)$/);
-        if (fhm) {
-          checkBreak(12);
-          y += 3;
-          doc.setFillColor(240, 253, 250);
-          doc.rect(mg, y - 4, cW, 8, 'F');
-          doc.setDrawColor(15, 118, 110);
-          doc.setLineWidth(0.2);
-          doc.line(mg, y + 4, pW - mg, y + 4);
+      // ── Sezione fissa tipo-specifica ──
+      var TIPO_TESTI = {
+        intercettiva: [
+          'Necessari controlli periodici per attivazione dell\'apparecchiatura da parte dell\'ortodontista.'
+        ],
+        fissa: [
+          'Il mancato rispetto dei controlli periodici, o la mancata collaborazione da parte del paziente (mancato uso degli elastici intermascellari, rotture frequenti dell\'apparecchio ortodontico) possono impedire il raggiungimento dell\'obiettivo terapeutico al 100%.',
+          '',
+          'Rischi rari o occasionali:',
+          '- Gengiviti, carie, decalcificazioni dentarie in assenza di corretta igiene orale',
+          '- Lesioni dei tessuti molli',
+          '- Riassorbimento radicolare (può essere favorito da fattori come traumi dentali, patologie sistemiche, utilizzo di alcuni farmaci)',
+          '',
+          'In concomitanza o dopo il trattamento ortodontico possono verificarsi disfunzioni a carico dell\'articolazione temporo-mandibolare (queste ultime possono essere collegate ad eruzione ectopica di secondi o terzi molari, spasmi muscolari in condizioni di stress o in presenza di abitudini viziate, incidenti, colpo di frusta, traumi al mento).',
+          '',
+          'Il mancato utilizzo delle contenzioni, la loro rottura o il mancato rispetto degli appuntamenti di controllo delle contenzioni stesse dopo la terapia possono favorire il disallineamento dentale post-terapeutico.',
+          '',
+          'Dopo il termine del trattamento ortodontico, in pazienti in crescita, può verificarsi recidiva del trattamento stesso per crescita sfavorevole delle basi ossee nelle III classi.'
+        ],
+        allineatori: [
+          'Il mancato rispetto dei controlli periodici, o la mancata collaborazione da parte del paziente (mancato utilizzo o utilizzo per un tempo insufficiente degli allineatori) possono impedire il raggiungimento dell\'obiettivo terapeutico al 100%.',
+          '',
+          'È compresa nel preventivo un\'unica garanzia per ristampa allineatori in caso di smarrimento o di perdita di adattabilità degli allineatori stessi per mancata collaborazione.',
+          '',
+          'In concomitanza o dopo il trattamento ortodontico possono verificarsi disfunzioni a carico dell\'articolazione temporo-mandibolare (queste ultime possono essere collegate ad eruzione ectopica di secondi o terzi molari, spasmi muscolari in condizioni di stress o in presenza di abitudini viziate, incidenti, colpo di frusta, traumi al mento).',
+          '',
+          'Il mancato utilizzo delle contenzioni, la loro rottura o il mancato rispetto degli appuntamenti di controllo delle contenzioni stesse dopo la terapia possono favorire il disallineamento dentale post-terapeutico.'
+        ]
+      };
+      var tipoTesto = TIPO_TESTI[tipoConsenso];
+      if (tipoTesto && tipoTesto.length > 0) {
+        var fixedLines = ['## ' + (TIPO_LABELS[tipoConsenso] || '')].concat(tipoTesto);
+        for (var fi = 0; fi < fixedLines.length; fi++) {
+          var fline = fixedLines[fi];
+          var fhm = fline.match(/^#{1,2}\s+(.+)$/);
+          if (fhm) {
+            checkBreak(12);
+            y += 3;
+            doc.setFillColor(240, 253, 250);
+            doc.rect(mg, y - 4, cW, 8, 'F');
+            doc.setDrawColor(15, 118, 110);
+            doc.setLineWidth(0.2);
+            doc.line(mg, y + 4, pW - mg, y + 4);
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(15, 118, 110);
+            doc.text(fhm[1], mg + 2, y + 1);
+            y += 10;
+            continue;
+          }
+          if (!fline.trim()) { y += 2; continue; }
+          var fclean = fline.replace(/\*\*(.+?)\*\*/g, '$1');
           doc.setFontSize(10);
-          doc.setFont('helvetica', 'bold');
-          doc.setTextColor(15, 118, 110);
-          doc.text(fhm[1], mg + 2, y + 1);
-          y += 10;
-          continue;
-        }
-        if (!fline.trim()) { y += 2; continue; }
-        var fclean = fline.replace(/\*\*(.+?)\*\*/g, '$1');
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(40, 40, 40);
-        var fwrapped = doc.splitTextToSize(fclean, cW);
-        for (var fj = 0; fj < fwrapped.length; fj++) {
-          checkBreak(5);
-          doc.text(fwrapped[fj], mg, y);
-          y += 5;
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(40, 40, 40);
+          var fwrapped = doc.splitTextToSize(fclean, cW);
+          for (var fj = 0; fj < fwrapped.length; fj++) {
+            checkBreak(5);
+            doc.text(fwrapped[fj], mg, y);
+            y += 5;
+          }
         }
       }
 
