@@ -935,7 +935,7 @@
       };
       var tipoTesto = TIPO_TESTI[tipoConsenso];
       if (tipoTesto && tipoTesto.length > 0) {
-        var fixedLines = ['## ' + (TIPO_LABELS[tipoConsenso] || '')].concat(tipoTesto);
+        var fixedLines = ['## ' + (TIPO_LABELS[tipoConsenso] || '') + ' – RISCHI GENERICI'].concat(tipoTesto);
         for (var fi = 0; fi < fixedLines.length; fi++) {
           var fline = fixedLines[fi];
           var fhm = fline.match(/^#{1,2}\s+(.+)$/);
