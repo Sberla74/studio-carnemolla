@@ -49,6 +49,7 @@
       </div>
       <div style="display:flex; gap:8px; flex-wrap:wrap;">
         <a id="gnatologia-btn" href="#" class="btn btn-secondary">🦷 Cartella Gnatologica</a>
+        <a id="ortognatodonzia-btn" href="#" class="btn btn-secondary">📋 Cartella Ortognatodontica</a>
         <a id="consenso-btn" href="#" class="btn btn-primary">🎙 Registra Consenso Informato</a>
       </div>
     </div>
@@ -155,7 +156,8 @@
     document.getElementById('consenso-btn').href   = consensoHref;
     document.getElementById('consenso-btn-2').href = consensoHref;
     document.getElementById('primo-consenso-btn').href = consensoHref;
-    document.getElementById('gnatologia-btn').href = 'gnatologia.html?pazienteId=' + pazienteId + '&nome=' + nomeEnc;
+    document.getElementById('gnatologia-btn').href      = 'gnatologia.html?pazienteId=' + pazienteId + '&nome=' + nomeEnc;
+    document.getElementById('ortognatodonzia-btn').href = 'ortognatodonzia.html?pazienteId=' + pazienteId + '&nome=' + nomeEnc;
 
     document.getElementById('inf-nome').textContent     = p.nome || '–';
     document.getElementById('inf-cognome').textContent  = p.cognome || '–';
