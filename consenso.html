@@ -80,6 +80,7 @@
           <button class="tipo-btn" data-tipo="intercettiva">🦷 Terapia Intercettiva</button>
           <button class="tipo-btn" data-tipo="fissa">🔩 Terapia Fissa con Brackets</button>
           <button class="tipo-btn" data-tipo="allineatori">✨ Terapia Mobile con Allineatori</button>
+          <button class="tipo-btn" data-tipo="gnatologica">🦴 Terapia Gnatologica</button>
         </div>
       </div>
 
@@ -283,8 +284,8 @@
   var timerInterval, seconds = 0, isRecording = false;
   var pazienteTelefono = '';
   var otpVerificaInfo  = null; // { telefono, timestamp } — impostato dopo verifica OTP
-  var tipoConsenso     = ''; // 'intercettiva' | 'fissa' | 'allineatori'
-  var TIPO_LABELS      = { intercettiva: 'TERAPIA INTERCETTIVA', fissa: 'TERAPIA FISSA CON BRACKETS', allineatori: 'TERAPIA MOBILE CON ALLINEATORI' };
+  var tipoConsenso     = ''; // 'intercettiva' | 'fissa' | 'allineatori' | 'gnatologica'
+  var TIPO_LABELS      = { intercettiva: 'TERAPIA INTERCETTIVA', fissa: 'TERAPIA FISSA CON BRACKETS', allineatori: 'TERAPIA MOBILE CON ALLINEATORI', gnatologica: 'TERAPIA GNATOLOGICA' };
 
   // ── Signature Pad ──────────────────────────────
   var firmaCanvas    = document.getElementById('firma-pad');
@@ -918,6 +919,9 @@
       var TIPO_TESTI = {
         intercettiva: [
           'Necessari controlli periodici per attivazione dell\'apparecchiatura da parte dell\'ortodontista.'
+        ],
+        gnatologica: [
+          'La terapia è strettamente collegata alla collaborazione del paziente.'
         ],
         fissa: [
           'Il mancato rispetto dei controlli periodici, o la mancata collaborazione da parte del paziente (mancato uso degli elastici intermascellari, rotture frequenti dell\'apparecchio ortodontico) possono impedire il raggiungimento dell\'obiettivo terapeutico al 100%.',
